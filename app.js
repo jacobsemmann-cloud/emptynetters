@@ -1,4 +1,4 @@
-console.log("App version 8.1 - Unified Engine");
+console.log("App version 8.1.2 - Fixed Unified Engine");
 
 var GOOGLE_URL = "https://script.google.com/macros/s/AKfycbyiUE8SnfMzVvqxlqeeoyaWXRyF2bDqEEdqBJ4FMIiMlhyCozsEGAowpwe6iiO-KJxN/exec";
 
@@ -19,30 +19,48 @@ var displayNames = {
     "Net Empty": "Team Stats with Net Empty"
 };
 
+/**
+ * FIX: Added try/catch and data validation to prevent dashboard crashes
+ */
 async function fetchStandings() {
     try {
         var res = await fetch(STANDINGS_API);
         var data = await res.json();
+        // Check if standings exist before looping
         if (data && data.standings) {
             data.standings.forEach(function(s) {
                 var w = s.wins || 0;
                 var l = s.losses || 0;
                 var ot = s.otLosses || 0;
+                // Handle complex NHL API abbrev objects
                 var abbrev = (s.teamAbbrev && s.teamAbbrev.default) ? s.teamAbbrev.default : s.teamAbbrev;
-                if (abbrev) { standings[abbrev] = { rec: w + "-" + l + "-" + ot }; }
+                
+                if (abbrev) { 
+                    standings[abbrev] = { rec: w + "-" + l + "-" + ot }; 
+                }
             });
+            console.log("Standings loaded for " + Object.keys(standings).length + " teams.");
         }
-    } catch (e) { console.error("Standings error:", e); }
+    } catch (e) { 
+        console.error("Standings error (Dashboard will still load):", e); 
+    }
 }
 
 async function loadDashboard() {
     container.innerHTML = "<h2>Loading League Stats...</h2>";
+    
+    // Fire off standings fetch but don't let a failure stop the dashboard
     await fetchStandings();
     
     try {
         var res = await fetch(GOOGLE_URL + "?action=dashboard");
         var data = await res.json();
         
+        if (!data || data.length === 0) {
+            container.innerHTML = "<h1>No Teams Found</h1><p>Check your Google Sheet 'Dashboard' tab.</p>";
+            return;
+        }
+
         var now = new Date();
         lastSyncTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -58,18 +76,25 @@ async function loadDashboard() {
         html += '</div>';
 
         html += '<div class="team-grid">';
+        
         data.forEach(function(item) {
-            var s = standings[item.team] || { rec: '0-0-0' };
+            // Mapping fix for UTA/ARI and ensuring matching works
+            var teamCode = item.team.trim().toUpperCase();
+            var s = standings[teamCode] || { rec: '0-0-0' };
+            
             html += '<div class="card" onclick="loadTeamData(\'' + item.team + '\')">';
-            html += '<img src="https://assets.nhle.com/logos/nhl/svg/' + item.team + '_light.svg" class="team-logo" alt="' + item.team + '">';
-            html += '<div style="font-weight:bold; font-size:1.2rem;">' + item.team + '</div>';
+            html += '<img src="https://assets.nhle.com/logos/nhl/svg/' + teamCode + '_light.svg" class="team-logo" alt="' + teamCode + '">';
+            html += '<div style="font-weight:bold; font-size:1.2rem;">' + teamCode + '</div>';
             html += '<div class="record-badge">' + s.rec + '</div>';
             html += '</div>';
         });
         
         html += '</div>';
         container.innerHTML = html;
-    } catch (e) { container.innerHTML = "<h1>API Error</h1><p>Check Google URL or deployment.</p>"; }
+    } catch (e) { 
+        console.error("Dashboard render error:", e);
+        container.innerHTML = "<h1>API Error</h1><p>Ensure your Google Web App is deployed as 'Public'.</p>"; 
+    }
 }
 
 async function loadMatchups() {
@@ -117,6 +142,8 @@ async function loadMatchups() {
             var g = parseFloat(row[pGIdx]) || 0;
             var toi = parseFloat(row[pToiIdx]) || 0;
             var fo = parseFloat(row[pFoIdx]) || 0;
+            
+            // Your Original Formula: (Goals * 5) + (TOI * 1.5) + (FO / 10)
             var score = (g * 5) + (toi * 1.5) + (fo / 10);
             
             playerENG[team].push({ name: row[pNameIdx], score: score });
@@ -127,7 +154,7 @@ async function loadMatchups() {
         html += '<button class="back-btn" onclick="loadDashboard()">Back</button></div>';
 
         schedData.gameWeek.forEach(day => {
-            if (day.games.length > 0) {
+            if (day.games && day.games.length > 0) {
                 var dParts = day.date.split("-");
                 var niceDate = new Date(dParts[0], dParts[1] - 1, dParts[2]).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
                 html += '<h3 style="margin-top: 30px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">' + niceDate + '</h3>';
@@ -167,6 +194,7 @@ async function loadMatchups() {
         });
         container.innerHTML = html;
     } catch (e) {
+        console.error("Matchups error:", e);
         container.innerHTML = "<h1>Error loading predictions.</h1><button class='back-btn' onclick='loadDashboard()'>Go Back</button>";
     }
 }
@@ -176,7 +204,7 @@ async function loadTeamData(teamName) {
     try {
         var res = await fetch(GOOGLE_URL + "?action=team&name=" + teamName);
         var raw = await res.json();
-        var teamFO = raw.rows.length > 0 ? raw.rows[0][0] : "0.0%";
+        var teamFO = (raw.rows && raw.rows.length > 0) ? raw.rows[0][0] : "0.0%";
         var headers = raw.headers.slice(2);
         var rows = raw.rows.map(r => r.slice(2));
         currentData = { type: 'team', team: teamName, teamFO: teamFO, headers: headers, rows: rows };
