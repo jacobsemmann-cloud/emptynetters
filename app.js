@@ -1,4 +1,4 @@
-console.log("App version 8.1.5 - Standings Row View");
+console.log("App version 8.1.6 - Utah Fix & Compact Engine");
 
 var GOOGLE_URL = "https://script.google.com/macros/s/AKfycbyiUE8SnfMzVvqxlqeeoyaWXRyF2bDqEEdqBJ4FMIiMlhyCozsEGAowpwe6iiO-KJxN/exec";
 var STANDINGS_API = "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://api-web.nhle.com/v1/standings/now");
@@ -9,9 +9,17 @@ var currentData = null;
 var sortDir = 1;
 
 /**
- * Normalizes common abbreviation mismatches
+ * Normalization Map: Ensures Utah and other teams match the NHL API keys
  */
-const TEAM_MAP = { "LA": "LAK", "SJ": "SJS", "TB": "TBL", "NJ": "NJD", "UTA": "UTM" };
+const TEAM_MAP = { 
+    "UTAH": "UTA", 
+    "UTM": "UTA", 
+    "LA": "LAK", 
+    "SJ": "SJS", 
+    "TB": "TBL", 
+    "NJ": "NJD",
+    "NSH": "NSH"
+};
 
 async function fetchStandings() {
     try {
@@ -29,11 +37,11 @@ async function fetchStandings() {
                 };
             });
         }
-    } catch (e) { console.error("Standings Error", e); }
+    } catch (e) { console.error("Standings Offline", e); }
 }
 
 async function loadDashboard() {
-    container.innerHTML = "<h2>Updating Standings...</h2>";
+    container.innerHTML = "<h2>Syncing Data...</h2>";
     await fetchStandings();
     
     try {
@@ -41,48 +49,74 @@ async function loadDashboard() {
         var sheetTeams = await res.json();
         var now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-        var html = '<div class="header"><h1>EMPTYNETTERS</h1><span style="font-size:0.7rem; color:#8b949e;">🟢 ' + now + '</span></div>';
-        html += '<div class="global-actions">';
-        html += '<button class="nav-btn" onclick="loadMatchups()">DAILY MATCHUPS</button>';
-        html += '<button class="nav-btn" onclick="loadRawData(\'RawData\')">PLAYER STATS</button>';
-        html += '<button class="nav-btn" onclick="loadRawData(\'VS Empty\')">VS EN</button>';
-        html += '</div>';
+        var html = `
+            <div class="header">
+                <h1>EMPTYNETTERS</h1>
+                <div class="nav-group">
+                    <button class="btn" onclick="loadMatchups()">MATCHUPS</button>
+                    <button class="btn" onclick="loadRawData('RawData')">PLAYERS</button>
+                    <button class="btn" onclick="loadRawData('VS Empty')">VS EN</button>
+                    <span style="font-size:10px; color:#8b949e; align-self:center; margin-left:10px;">🟢 ${now}</span>
+                </div>
+            </div>`;
 
         // Grouping by Division
         var divisions = { "Atlantic": [], "Metropolitan": [], "Central": [], "Pacific": [] };
+        
         sheetTeams.forEach(t => {
             let code = t.team.trim().toUpperCase();
             code = TEAM_MAP[code] || code;
+            
             const stats = standingsData[code] || { rec: "-", pts: "-", gp: "-", div: "Other", rank: "-" };
             const div = stats.div || "Other";
-            if (!divisions[div]) divisions[div] = [];
-            divisions[div].push({ code: code, stats: stats });
+            
+            if (divisions[div]) {
+                divisions[div].push({ code: code, stats: stats });
+            } else {
+                if (!divisions["Other"]) divisions["Other"] = [];
+                divisions["Other"].push({ code: code, stats: stats });
+            }
         });
 
-        Object.keys(divisions).forEach(divName => {
+        ["Atlantic", "Metropolitan", "Central", "Pacific"].forEach(divName => {
             if (divisions[divName].length === 0) return;
             divisions[divName].sort((a,b) => a.stats.rank - b.stats.rank);
 
-            html += `<div class="division-block">
-                <div class="division-header">${divName} Division</div>
-                <table class="s-table">
-                    <thead><tr><th class="num">#</th><th>Team</th><th class="stat">GP</th><th class="stat">W-L-OTL</th><th class="stat">PTS</th></tr></thead>
-                    <tbody>`;
+            html += `
+                <div class="div-section">
+                    <div class="div-title">${divName} Division</div>
+                    <table class="compact-table">
+                        <thead>
+                            <tr>
+                                <th style="width:20px;">#</th>
+                                <th>TEAM</th>
+                                <th class="center">GP</th>
+                                <th class="center">RECORD</th>
+                                <th class="center">PTS</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
             
             divisions[divName].forEach(team => {
-                html += `<tr onclick="loadTeamData('${team.code}')">
-                    <td class="num">${team.stats.rank}</td>
-                    <td><div class="team-cell"><img src="https://assets.nhle.com/logos/nhl/svg/${team.code}_light.svg" class="t-logo">${team.code}</div></td>
-                    <td class="stat">${team.stats.gp}</td>
-                    <td class="stat" style="font-family:monospace;">${team.stats.rec}</td>
-                    <td class="stat pts">${team.stats.pts}</td>
-                </tr>`;
+                html += `
+                    <tr onclick="loadTeamData('${team.code}')">
+                        <td class="center" style="color:#8b949e;">${team.stats.rank}</td>
+                        <td>
+                            <div class="team-box">
+                                <img src="https://assets.nhle.com/logos/nhl/svg/${team.code}_light.svg" class="logo">
+                                ${team.code}
+                            </div>
+                        </td>
+                        <td class="center">${team.stats.gp}</td>
+                        <td class="center" style="font-family:monospace;">${team.stats.rec}</td>
+                        <td class="center pts">${team.stats.pts}</td>
+                    </tr>`;
             });
             html += `</tbody></table></div>`;
         });
 
         container.innerHTML = html;
-    } catch (e) { container.innerHTML = "<h1>Data Error</h1>"; }
+    } catch (e) { container.innerHTML = "<h1>API Sync Error</h1>"; }
 }
 
 async function loadTeamData(team) {
@@ -96,7 +130,7 @@ async function loadTeamData(team) {
 }
 
 async function loadRawData(name) {
-    container.innerHTML = "<h2>Loading...</h2>";
+    container.innerHTML = "<h2>Fetching...</h2>";
     try {
         var res = await fetch(GOOGLE_URL + "?action=raw&name=" + encodeURIComponent(name));
         var raw = await res.json();
@@ -106,12 +140,17 @@ async function loadRawData(name) {
 }
 
 function renderTable() {
-    var html = `<div class="header"><h1>${currentData.team || currentData.name}</h1><button class="nav-btn" onclick="loadDashboard()">BACK</button></div>`;
-    html += '<div class="table-wrapper"><table><thead><tr>';
-    currentData.headers.forEach((h, i) => { html += `<th onclick="sortTable(${i})">${h} ↕</th>`; });
-    html += '</tr></thead><tbody>';
-    currentData.rows.forEach(row => { html += '<tr>' + row.map(c => `<td>${c}</td>`).join('') + '</tr>'; });
-    html += '</tbody></table></div>';
+    var html = `
+        <div class="header">
+            <h1>${currentData.team || currentData.name}</h1>
+            <button class="btn" onclick="loadDashboard()">BACK</button>
+        </div>
+        <div class="table-wrapper">
+            <table>
+                <thead><tr>${currentData.headers.map((h, i) => `<th onclick="sortTable(${i})">${h} ↕</th>`).join('')}</tr></thead>
+                <tbody>${currentData.rows.map(row => `<tr>${row.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>
+            </table>
+        </div>`;
     container.innerHTML = html;
 }
 
@@ -125,8 +164,7 @@ function sortTable(idx) {
 }
 
 async function loadMatchups() {
-    container.innerHTML = "<h2>Matchups Loading...</h2><button class='nav-btn' onclick='loadDashboard()'>BACK</button>";
-    // Reuse your previous Matchup logic here...
+    container.innerHTML = "<h2>Matchups analysis pending...</h2><button class='btn' onclick='loadDashboard()'>BACK</button>";
 }
 
 loadDashboard();
