@@ -1,4 +1,4 @@
-const GOOGLE_URL = "YOUR_GOOGLE_SCRIPT_WEB_APP_URL"; 
+const GOOGLE_URL = "https://script.google.com/macros/s/AKfycbxYqfqphuMSHm0eJUae7jlNE89UUa70-SSl1bmhBlHoxv-SSZ0q0l7-eVzUHTlh6isC/exec"; 
 const STANDINGS_API = "https://api-web.nhle.com/v1/standings/now";
 const container = document.getElementById('app');
 
@@ -62,12 +62,12 @@ async function loadTeamData(teamName) {
         const res = await fetch(`${GOOGLE_URL}?action=team&name=${teamName}`);
         const raw = await res.json();
         
-        // Find Column Indices
-        const playerColIdx = raw.headers.indexOf("Player");
-        const winIdx = raw.headers.indexOf("Faceoffs Won");
-        const lossIdx = raw.headers.indexOf("Faceoffs Lost");
+        // Find Column Indices with trimming and case-insensitivity
+        const playerColIdx = raw.headers.findIndex(h => h.toString().trim().toLowerCase() === "player");
+        const winIdx = raw.headers.findIndex(h => h.toString().trim().toLowerCase() === "faceoffs won");
+        const lossIdx = raw.headers.findIndex(h => h.toString().trim().toLowerCase() === "faceoffs lost");
 
-        // 1. Calculate Team FO% before any slicing
+        // Calculate Team FO%
         let teamWon = 0; let teamLost = 0;
         raw.rows.forEach(row => {
             teamWon += Number(row[winIdx]) || 0;
@@ -76,10 +76,11 @@ async function loadTeamData(teamName) {
         const teamTotal = teamWon + teamLost;
         const teamFOPercent = teamTotal > 0 ? ((teamWon / teamTotal) * 100).toFixed(1) + "%" : "0.0%";
 
-        // 2. DYNAMIC SLICE: Start the table exactly where the "Player" column is found
-        // This removes the blank column and any unwanted columns to the left.
-        const cleanedHeaders = raw.headers.slice(playerColIdx); 
-        const cleanedRows = raw.rows.map(row => row.slice(playerColIdx));
+        // Fallback: If Player index wasn't found, don't slice anything
+        const sliceStart = playerColIdx === -1 ? 0 : playerColIdx;
+
+        const cleanedHeaders = raw.headers.slice(sliceStart); 
+        const cleanedRows = raw.rows.map(row => row.slice(sliceStart));
 
         currentData = {
             team: teamName,
@@ -89,7 +90,10 @@ async function loadTeamData(teamName) {
         };
 
         renderTable();
-    } catch (e) { container.innerHTML = "<h1>Error loading team.</h1>"; }
+    } catch (e) { 
+        console.error(e);
+        container.innerHTML = "<h1>Error loading team.</h1>"; 
+    }
 }
 
 function renderTable() {
