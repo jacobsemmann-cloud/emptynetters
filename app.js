@@ -1,4 +1,4 @@
-const GOOGLE_URL = "https://script.google.com/macros/s/AKfycbxYqfqphuMSHm0eJUae7jlNE89UUa70-SSl1bmhBlHoxv-SSZ0q0l7-eVzUHTlh6isC/exec"; 
+const GOOGLE_URL = "YOUR_GOOGLE_SCRIPT_WEB_APP_URL"; 
 const STANDINGS_API = "https://api-web.nhle.com/v1/standings/now";
 const container = document.getElementById('app');
 
@@ -29,7 +29,7 @@ async function fetchStandings() {
 function getLogo(t) { return `https://assets.nhle.com/logos/nhl/svg/${t}_light.svg`; }
 
 function getDFOLink(team) {
-    const dfoMapping = { 'ANA': 'anaheim-ducks', 'BOS': 'boston-bruins', 'BUF': 'buffalo-sabres', 'CAR': 'carolina-hurricanes', 'CBJ': 'columbus-blue-jackets', 'CGY': 'calgary-flames', 'CHI': 'chicago-blackhawks', 'COL': 'colorado-avalanche', 'DAL': 'dallas-stars', 'DET': 'detroit-red-wings', 'EDM': 'edmonton-oilers', 'FLA': 'florida-panthers', 'LAK': 'los-angeles-kings', 'MIN': 'minnesota-wild', 'MTL': 'montreal-canadiens', 'NJD': 'new-jersey-devils', 'NSH': 'nashville-predators', 'NYI': 'new-york-islanders', 'NYR': 'new-york-rangers', 'OTT': 'ottawa-senators', 'PHI': 'philadelphia-flyers', 'PIT': 'pittsburgh-penguins', 'SEA': 'seattle-kraken', 'SJS': 'san-jose-sharks', 'STL': 'st-louis-blues', 'TBL': 'tampa-bay-lightning', 'TOR': 'touronto-maple-leafs', 'UTA': 'utah-hockey-club', 'VAN': 'vancouver-canucks', 'VGK': 'vegas-golden-knights', 'WSH': 'washington-capitals', 'WPG': 'winnipeg-jets' };
+    const dfoMapping = { 'ANA': 'anaheim-ducks', 'BOS': 'boston-bruins', 'BUF': 'buffalo-sabres', 'CAR': 'carolina-hurricanes', 'CBJ': 'columbus-blue-jackets', 'CGY': 'calgary-flames', 'CHI': 'chicago-blackhawks', 'COL': 'colorado-avalanche', 'DAL': 'dallas-stars', 'DET': 'detroit-red-wings', 'EDM': 'edmonton-oilers', 'FLA': 'florida-panthers', 'LAK': 'los-angeles-kings', 'MIN': 'minnesota-wild', 'MTL': 'montreal-canadiens', 'NJD': 'new-jersey-devils', 'NSH': 'nashville-predators', 'NYI': 'new-york-islanders', 'NYR': 'new-york-rangers', 'OTT': 'ottawa-senators', 'PHI': 'philadelphia-flyers', 'PIT': 'pittsburgh-penguins', 'SEA': 'seattle-kraken', 'SJS': 'san-jose-sharks', 'STL': 'st-louis-blues', 'TBL': 'tampa-bay-lightning', 'TOR': 'toronto-maple-leafs', 'UTA': 'utah-hockey-club', 'VAN': 'vancouver-canucks', 'VGK': 'vegas-golden-knights', 'WSH': 'washington-capitals', 'WPG': 'winnipeg-jets' };
     return `https://www.dailyfaceoff.com/teams/${dfoMapping[team]}/line-combinations`;
 }
 
@@ -62,13 +62,12 @@ async function loadTeamData(teamName) {
         const res = await fetch(`${GOOGLE_URL}?action=team&name=${teamName}`);
         const raw = await res.json();
         
-        // --- DATA CLEANING STEP ---
-        // We slice the headers and rows to remove the first 2 columns [0, 1]
-        // This keeps Column 2 ("Player") as the new Column 0.
+        // Find Column Indices
+        const playerColIdx = raw.headers.indexOf("Player");
         const winIdx = raw.headers.indexOf("Faceoffs Won");
         const lossIdx = raw.headers.indexOf("Faceoffs Lost");
 
-        // Calculate Team FO% BEFORE slicing
+        // 1. Calculate Team FO% before any slicing
         let teamWon = 0; let teamLost = 0;
         raw.rows.forEach(row => {
             teamWon += Number(row[winIdx]) || 0;
@@ -77,9 +76,10 @@ async function loadTeamData(teamName) {
         const teamTotal = teamWon + teamLost;
         const teamFOPercent = teamTotal > 0 ? ((teamWon / teamTotal) * 100).toFixed(1) + "%" : "0.0%";
 
-        // Now, slice off the unwanted columns
-        const cleanedHeaders = raw.headers.slice(2); 
-        const cleanedRows = raw.rows.map(row => row.slice(2));
+        // 2. DYNAMIC SLICE: Start the table exactly where the "Player" column is found
+        // This removes the blank column and any unwanted columns to the left.
+        const cleanedHeaders = raw.headers.slice(playerColIdx); 
+        const cleanedRows = raw.rows.map(row => row.slice(playerColIdx));
 
         currentData = {
             team: teamName,
