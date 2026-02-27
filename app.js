@@ -1,63 +1,80 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbxYqfqphuMSHm0eJUae7jlNE89UUa70-SSl1bmhBlHoxv-SSZ0q0l7-eVzUHTlh6isC/exec"; // Make sure your URL is here!
+const API_URL = "https://script.google.com/macros/s/AKfycbxYqfqphuMSHm0eJUae7jlNE89UUa70-SSl1bmhBlHoxv-SSZ0q0l7-eVzUHTlh6isC/exec"; 
+const container = document.getElementById('app-container');
 
-const container = document.getElementById('dashboard');
+// NHL Logo Helper
+function getLogo(team) {
+    const mapping = { 'L.A': 'LAK', 'S.J': 'SJS', 'N.J': 'NJD', 'T.B': 'TBL', 'UTA': 'UTA' };
+    const key = mapping[team] || team;
+    return `https://assets.nhle.com/logos/nhl/svg/${key}_light.svg`;
+}
 
-// 1. Load the main Dashboard
+// Player Headshot Logic
+function getPlayerImg(name) {
+    const initials = name.split(' ').map(n => n[0]).join('').toUpperCase();
+    return `<div class="player-mug">${initials}</div>`;
+}
+
+// 1. Dashboard View
 async function loadDashboard() {
-    container.innerHTML = "<h2>Loading League Dashboard...</h2>";
+    container.innerHTML = "<h1>Loading Dashboard...</h1>";
     try {
-        const response = await fetch(`${API_URL}?action=dashboard`);
-        const data = await response.json();
-        
-        let html = `<h1>NHL Team Overviews</h1><div class="team-grid">`;
+        const res = await fetch(`${API_URL}?action=dashboard`);
+        const data = await res.json();
+        data.sort((a, b) => a.team.localeCompare(b.team));
+
+        let html = `<h1>Empty Netters Dashboard</h1><div class="team-grid">`;
         html += data.map(item => `
-            <div class="card" onclick="loadTeamData('${item.team}')" style="cursor:pointer">
+            <div class="card" onclick="loadTeamData('${item.team}')">
+                <img src="${getLogo(item.team)}" class="team-logo" onerror="this.src='https://placehold.co/100?text=${item.team}'">
                 <h3>${item.team}</h3>
-                <p>${item.players} Players tracked</p>
-                <small>Click to view roster →</small>
+                <p style="color: #8b949e;">${item.players} Players</p>
             </div>
         `).join('');
-        html += `</div>`;
-        
-        container.innerHTML = html;
+        container.innerHTML = html + `</div>`;
     } catch (e) {
-        container.innerHTML = "Error loading dashboard. Check Google Script permissions.";
+        container.innerHTML = "<h1>Error loading data. Check Permissions.</h1>";
     }
 }
 
-// 2. Load Specific Team Data
+// 2. Team View
 async function loadTeamData(teamName) {
-    container.innerHTML = `<h2>Loading ${teamName} stats...</h2>`;
+    window.scrollTo(0,0);
+    container.innerHTML = `<h1>Loading ${teamName}...</h1>`;
     
     try {
-        const response = await fetch(`${API_URL}?action=team&name=${teamName}`);
-        const data = await response.json();
+        const res = await fetch(`${API_URL}?action=team&name=${teamName}`);
+        const data = await res.json();
+
+        // Identify the "Player" column for headshots
+        const playerIdx = data.headers.indexOf("Player");
 
         let html = `
-            <button onclick="loadDashboard()" style="margin-bottom: 20px; padding: 10px;">← Back to Teams</button>
-            <h1>${data.team} Player Stats</h1>
-            <div style="overflow-x:auto;">
-                <table border="1" style="width:100%; border-collapse: collapse; text-align: left;">
-                    <thead>
-                        <tr style="background: #444;">
-                            ${data.headers.map(h => `<th style="padding: 10px;">${h}</th>`).join('')}
-                        </tr>
-                    </thead>
+            <button class="back-btn" onclick="loadDashboard()">← All Teams</button>
+            <div class="roster-header">
+                <img src="${getLogo(teamName)}" style="width: 120px;">
+                <h1>${teamName} Roster Stats</h1>
+            </div>
+            <div class="table-wrapper">
+                <table>
+                    <thead><tr>${data.headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
                     <tbody>
                         ${data.rows.map(row => `
                             <tr>
-                                ${row.map(cell => `<td style="padding: 8px; border-bottom: 1px solid #444;">${cell}</td>`).join('')}
+                                ${row.map((cell, idx) => {
+                                    if (idx === playerIdx) {
+                                        return `<td><div class="player-cell">${getPlayerImg(cell)}<span>${cell}</span></div></td>`;
+                                    }
+                                    return `<td>${cell}</td>`;
+                                }).join('')}
                             </tr>
                         `).join('')}
                     </tbody>
                 </table>
-            </div>
-        `;
+            </div>`;
         container.innerHTML = html;
     } catch (e) {
-        container.innerHTML = "Error loading team data.";
+        container.innerHTML = "<h1>Error loading team.</h1>";
     }
 }
 
-// Start the app
 loadDashboard();
