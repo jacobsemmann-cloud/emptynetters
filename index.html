@@ -37,9 +37,14 @@
         .table-wrapper { overflow-x: auto; border: 1px solid var(--border-color); border-radius: 6px; height: 75vh;}
         table { width: 100%; border-collapse: collapse; text-align: right; white-space: nowrap; }
         th, td { padding: 10px; border-bottom: 1px solid var(--border-color); }
+        
+        /* -- NEW STICKY COLUMN LOGIC -- */
         th { background-color: var(--card-bg); cursor: pointer; user-select: none; position: sticky; top: 0; z-index: 10; border-bottom: 2px solid var(--border-color); }
         th:hover { color: var(--accent-color); }
-        th:nth-child(1), td:nth-child(1), th:nth-child(2), td:nth-child(2) { text-align: left; }
+        
+        th:nth-child(1), td:nth-child(1) { text-align: left; position: sticky; left: 0; background-color: var(--bg-color); z-index: 5; border-right: 1px solid var(--border-color); }
+        th:nth-child(1) { background-color: var(--card-bg); z-index: 15; } /* Top-Left Corner Piece */
+        th:nth-child(2), td:nth-child(2) { text-align: left; }
     </style>
 </head>
 <body>

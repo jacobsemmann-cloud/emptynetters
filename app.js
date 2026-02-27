@@ -1,4 +1,4 @@
-console.log("App version 4.1 starting...");
+console.log("App version 6.0 starting...");
 
 // PASTE YOUR GOOGLE WEB APP URL HERE
 var GOOGLE_URL = "https://script.google.com/macros/s/AKfycbyiUE8SnfMzVvqxlqeeoyaWXRyF2bDqEEdqBJ4FMIiMlhyCozsEGAowpwe6iiO-KJxN/exec";
@@ -10,7 +10,6 @@ var currentData = null;
 var sortDir = 1;
 var lastSyncTime = "Updating...";
 
-// Map the raw sheet names to the nice display names for the table headers
 var displayNames = {
     "RawData": "Player ENG Stats",
     "VS Empty": "Team Stats vs Empty Net",
@@ -48,7 +47,6 @@ async function loadDashboard() {
         html += '<h1>EMPTYNETTERS</h1>';
         html += '<span class="sync-time">🟢 Live • ' + lastSyncTime + '</span></div>';
         
-        // --- GLOBAL ACTIONS BAR ---
         html += '<div class="global-actions">';
         html += '<button class="raw-btn" onclick="loadRawData(\'RawData\')">Player ENG Stats</button>';
         html += '<button class="raw-btn" onclick="loadRawData(\'VS Empty\')">Team Stats vs Empty Net</button>';
@@ -70,7 +68,6 @@ async function loadDashboard() {
     } catch (e) { container.innerHTML = "<h1>API Error</h1><p>Check your GOOGLE_URL or Apps Script deployment.</p>"; }
 }
 
-// Loads standard player team sheets (LAK, BOS, etc)
 async function loadTeamData(teamName) {
     container.innerHTML = "<h2>Loading " + teamName + " data...</h2>";
     window.scrollTo(0,0);
@@ -82,7 +79,6 @@ async function loadTeamData(teamName) {
         var teamFO = "0.0%";
         if (raw.rows.length > 0) { teamFO = raw.rows[0][0]; }
 
-        // Slices off FO% and Team abbreviation for the display
         var rawHeaders = raw.headers.slice(2);
         var rawRows = raw.rows.map(function(row) { return row.slice(2); });
 
@@ -104,7 +100,6 @@ async function loadTeamData(teamName) {
     } catch (e) { container.innerHTML = "<h1>Error loading team.</h1><button class='back-btn' onclick='loadDashboard()'>Go Back</button>"; }
 }
 
-// Loads the global data sheets (VS Empty, Net Empty, RawData)
 async function loadRawData(sheetName) {
     var displayName = displayNames[sheetName] || sheetName;
     container.innerHTML = "<h2>Loading " + displayName + "...</h2>";
@@ -114,7 +109,6 @@ async function loadRawData(sheetName) {
         var res = await fetch(GOOGLE_URL + "?action=raw&name=" + encodeURIComponent(sheetName));
         var raw = await res.json();
 
-        // For raw data, we keep ALL columns, just filter out completely blank ones
         var cleanHeaders = [];
         var validIndices = [];
         raw.headers.forEach(function(h, idx) {
@@ -127,6 +121,30 @@ async function loadRawData(sheetName) {
         var cleanRows = raw.rows.map(function(row) {
             return validIndices.map(function(idx) { return row[idx]; });
         });
+
+        // --- NEW LOGIC: REORDER GF AND GA FOR SPECIFIC TABS ---
+        if (sheetName === 'VS Empty' || sheetName === 'Net Empty') {
+            var ptPctIdx = cleanHeaders.findIndex(function(h) { return h.trim() === "Point %" || h.trim() === "PTS%"; });
+            var gfIdx = cleanHeaders.findIndex(function(h) { return h.trim() === "GF"; });
+            var gaIdx = cleanHeaders.findIndex(function(h) { return h.trim() === "GA"; });
+
+            if (ptPctIdx !== -1 && gfIdx !== -1 && gaIdx !== -1) {
+                var newOrder = [];
+                for (var i = 0; i < cleanHeaders.length; i++) {
+                    if (i === gfIdx || i === gaIdx) continue; // Skip these for now
+                    newOrder.push(i);
+                    // Insert them right after Point %
+                    if (i === ptPctIdx) {
+                        newOrder.push(gfIdx);
+                        newOrder.push(gaIdx);
+                    }
+                }
+                
+                // Apply the new column order
+                cleanHeaders = newOrder.map(function(i) { return cleanHeaders[i]; });
+                cleanRows = cleanRows.map(function(row) { return newOrder.map(function(i) { return row[i]; }); });
+            }
+        }
 
         currentData = { type: 'raw', team: sheetName, displayName: displayName, headers: cleanHeaders, rows: cleanRows };
         renderTable();
