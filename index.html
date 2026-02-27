@@ -11,47 +11,55 @@
         }
         body { 
             font-family: -apple-system, system-ui, sans-serif; 
-            background: var(--bg); color: var(--txt); margin: 0; padding: 5px; 
+            background: var(--bg); color: var(--txt); margin: 0; padding: 10px; 
         }
-        #app { max-width: 900px; margin: 0 auto; }
+        #app { max-width: 1100px; margin: 0 auto; }
 
-        /* Buttons - Restored 8.1 Glow */
-        .header-section { text-align: center; margin-bottom: 5px; }
-        .header-section h1 { margin: 0; font-style: italic; color: var(--acc); font-size: 1.4rem; }
-        .global-actions { margin: 8px 0; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+        /* Header & Nav */
+        .header-section { text-align: center; margin-bottom: 15px; }
+        .header-section h1 { margin: 0; font-style: italic; color: var(--acc); font-size: 2.2rem; }
+        .global-actions { margin: 15px 0; display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+        
+        /* Restored 8.1 Button Style */
         .raw-btn, .back-btn { 
             background: var(--card); color: var(--acc); border: 1px solid var(--brd); 
-            padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.85rem;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            padding: 12px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 1rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2); transition: transform 0.1s;
         }
+        .raw-btn:hover { transform: translateY(-2px); border-color: var(--acc); }
 
-        /* Ultra-Condensed Table */
+        /* 2X Scaled Standings Table */
         .div-label { 
-            font-size: 0.65rem; color: #8b949e; text-transform: uppercase; 
-            border-bottom: 1px solid var(--brd); margin-top: 10px; padding-left: 5px;
+            font-size: 1rem; color: #8b949e; text-transform: uppercase; 
+            border-bottom: 2px solid var(--brd); margin-top: 20px; padding-bottom: 5px;
         }
-        .s-table { width: 100%; border-collapse: collapse; margin-bottom: 5px; table-layout: fixed; }
+        .s-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
         .s-table th { 
-            text-align: left; font-size: 0.55rem; color: #8b949e; 
-            padding: 2px 5px; text-transform: uppercase; border-bottom: 1px solid var(--brd);
+            text-align: left; font-size: 0.8rem; color: #8b949e; 
+            padding: 10px; text-transform: uppercase; border-bottom: 1px solid var(--brd);
         }
         .s-table td { 
-            padding: 0 5px; border-bottom: 1px solid #21262d; 
-            cursor: pointer; height: 20px; line-height: 20px; /* Force thin rows */
-            font-size: 0.8rem; overflow: hidden;
+            padding: 0 10px; border-bottom: 1px solid #21262d; 
+            cursor: pointer; height: 40px; line-height: 40px; /* 2X HEIGHT */
+            font-size: 1.1rem; /* 2X TEXT */
         }
         .s-table tr:hover td { background: var(--hov); }
 
-        .t-cell { display: flex; align-items: center; gap: 6px; font-weight: bold; }
-        .t-logo { width: 14px !important; height: 14px !important; object-fit: contain; }
+        .t-cell { display: flex; align-items: center; gap: 12px; font-weight: bold; }
+        .t-logo { width: 28px !important; height: 28px !important; object-fit: contain; } /* 2X LOGOS */
         
-        .st-cell { text-align: center; width: 40px; font-family: monospace; font-size: 0.75rem; }
-        .p-cell { font-weight: bold; color: var(--acc); text-align: center; width: 35px; }
+        .st-cell { text-align: center; width: 60px; font-family: monospace; }
+        .p-cell { font-weight: bold; color: var(--acc); text-align: center; width: 50px; }
 
-        /* Roster Wrapper */
-        .table-wrapper { overflow-x: auto; border: 1px solid var(--brd); height: 85vh; }
-        table { width: 100%; border-collapse: collapse; text-align: right; white-space: nowrap; font-size: 0.75rem; }
-        th { background: var(--card); position: sticky; top: 0; z-index: 10; padding: 5px; }
+        /* Matchup Cards */
+        .matchup-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 15px; margin-top: 20px; }
+        .m-card { background: var(--card); border: 1px solid var(--brd); border-radius: 8px; padding: 15px; }
+
+        /* Roster View */
+        .table-wrapper { overflow-x: auto; border: 1px solid var(--brd); border-radius: 8px; height: 80vh; }
+        table { width: 100%; border-collapse: collapse; text-align: right; white-space: nowrap; font-size: 0.9rem; }
+        th { background: var(--card); position: sticky; top: 0; z-index: 10; padding: 12px; cursor: pointer; }
+        td { padding: 10px; border-bottom: 1px solid var(--brd); }
         th:nth-child(1), td:nth-child(1) { text-align: left; position: sticky; left: 0; background: var(--bg); z-index: 5; }
     </style>
 </head>
