@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Empty Netters NHL Stats</title>
+    <title>Empty Netters NHL</title>
     <style>
         :root { --bg: #0b0d0f; --card: #161b22; --border: #30363d; --accent: #58a6ff; --text: #e6edf3; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0; }
+        body { font-family: sans-serif; background: var(--bg); color: var(--text); margin: 0; }
         #app { width: 100%; max-width: 1800px; margin: 0 auto; padding: 20px; box-sizing: border-box; }
         .team-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
         .card { background: var(--card); padding: 15px; border-radius: 8px; text-align: center; border: 1px solid var(--border); cursor: pointer; transition: 0.2s; }
@@ -14,17 +14,15 @@
         .team-logo { width: 60px; height: 60px; object-fit: contain; }
         .record-badge { font-size: 0.75rem; color: #8b949e; font-weight: bold; }
         .team-fo-badge { font-size: 0.75rem; background: rgba(88, 166, 255, 0.1); color: var(--accent); padding: 2px 8px; border-radius: 4px; font-weight: bold; border: 1px solid rgba(88, 166, 255, 0.2); }
-        .roster-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px; flex-wrap: wrap; gap: 20px; }
+        .roster-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px; }
         .last-5 { display: flex; gap: 4px; margin-top: 5px; }
         .pill { width: 18px; height: 18px; border-radius: 3px; font-size: 9px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; }
         .W { background: #238636; } .L { background: #da3633; } .O { background: #8250df; }
         .table-wrapper { width: 100%; overflow-x: auto; background: var(--card); border: 1px solid var(--border); border-radius: 12px; }
         table { width: 100%; border-collapse: collapse; white-space: nowrap; font-size: 0.85rem; }
-        th { background: #21262d; color: var(--accent); padding: 12px; text-align: left; cursor: pointer; font-size: 0.75rem; text-transform: uppercase; position: sticky; top: 0; }
+        th { background: #21262d; color: var(--accent); padding: 12px; text-align: left; cursor: pointer; text-transform: uppercase; font-size: 0.75rem; position: sticky; top: 0; }
         td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
         tr:hover { background: #1c2128; }
-        .dfo-btn { background: #ff4500; color: white; text-decoration: none; padding: 10px 16px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; }
-        .dfo-btn:hover { background: #e63e00; }
     </style>
 </head>
 <body>
