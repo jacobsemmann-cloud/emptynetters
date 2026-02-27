@@ -29,7 +29,7 @@ async function fetchStandings() {
 function getLogo(t) { return `https://assets.nhle.com/logos/nhl/svg/${t}_light.svg`; }
 
 function getDFOLink(team) {
-    const dfoMapping = { 'ANA': 'anaheim-ducks', 'BOS': 'boston-bruins', 'BUF': 'buffalo-sabres', 'CAR': 'carolina-hurricanes', 'CBJ': 'columbus-blue-jackets', 'CGY': 'calgary-flames', 'CHI': 'chicago-blackhawks', 'COL': 'colorado-avalanche', 'DAL': 'dallas-stars', 'DET': 'detroit-red-wings', 'EDM': 'edmonton-oilers', 'FLA': 'florida-panthers', 'LAK': 'los-angeles-kings', 'MIN': 'minnesota-wild', 'MTL': 'montreal-canadiens', 'NJD': 'new-jersey-devils', 'NSH': 'nashville-predators', 'NYI': 'new-york-islanders', 'NYR': 'new-york-rangers', 'OTT': 'ottawa-senators', 'PHI': 'philadelphia-flyers', 'PIT': 'pittsburgh-penguins', 'SEA': 'seattle-kraken', 'SJS': 'san-jose-sharks', 'STL': 'st-louis-blues', 'TBL': 'tampa-bay-lightning', 'TOR': 'toronto-maple-leafs', 'UTA': 'utah-hockey-club', 'VAN': 'vancouver-canucks', 'VGK': 'vegas-golden-knights', 'WSH': 'washington-capitals', 'WPG': 'winnipeg-jets' };
+    const dfoMapping = { 'ANA': 'anaheim-ducks', 'BOS': 'boston-bruins', 'BUF': 'buffalo-sabres', 'CAR': 'carolina-hurricanes', 'CBJ': 'columbus-blue-jackets', 'CGY': 'calgary-flames', 'CHI': 'chicago-blackhawks', 'COL': 'colorado-avalanche', 'DAL': 'dallas-stars', 'DET': 'detroit-red-wings', 'EDM': 'edmonton-oilers', 'FLA': 'florida-panthers', 'LAK': 'los-angeles-kings', 'MIN': 'minnesota-wild', 'MTL': 'montreal-canadiens', 'NJD': 'new-jersey-devils', 'NSH': 'nashville-predators', 'NYI': 'new-york-islanders', 'NYR': 'new-york-rangers', 'OTT': 'ottawa-senators', 'PHI': 'philadelphia-flyers', 'PIT': 'pittsburgh-penguins', 'SEA': 'seattle-kraken', 'SJS': 'san-jose-sharks', 'STL': 'st-louis-blues', 'TBL': 'tampa-bay-lightning', 'TOR': 'touronto-maple-leafs', 'UTA': 'utah-hockey-club', 'VAN': 'vancouver-canucks', 'VGK': 'vegas-golden-knights', 'WSH': 'washington-capitals', 'WPG': 'winnipeg-jets' };
     return `https://www.dailyfaceoff.com/teams/${dfoMapping[team]}/line-combinations`;
 }
 
@@ -60,7 +60,34 @@ async function loadTeamData(teamName) {
     container.innerHTML = `<h2>Loading ${teamName}...</h2>`;
     try {
         const res = await fetch(`${GOOGLE_URL}?action=team&name=${teamName}`);
-        currentData = await res.json();
+        const raw = await res.json();
+        
+        // --- DATA CLEANING STEP ---
+        // We slice the headers and rows to remove the first 2 columns [0, 1]
+        // This keeps Column 2 ("Player") as the new Column 0.
+        const winIdx = raw.headers.indexOf("Faceoffs Won");
+        const lossIdx = raw.headers.indexOf("Faceoffs Lost");
+
+        // Calculate Team FO% BEFORE slicing
+        let teamWon = 0; let teamLost = 0;
+        raw.rows.forEach(row => {
+            teamWon += Number(row[winIdx]) || 0;
+            teamLost += Number(row[lossIdx]) || 0;
+        });
+        const teamTotal = teamWon + teamLost;
+        const teamFOPercent = teamTotal > 0 ? ((teamWon / teamTotal) * 100).toFixed(1) + "%" : "0.0%";
+
+        // Now, slice off the unwanted columns
+        const cleanedHeaders = raw.headers.slice(2); 
+        const cleanedRows = raw.rows.map(row => row.slice(2));
+
+        currentData = {
+            team: teamName,
+            headers: cleanedHeaders,
+            rows: cleanedRows,
+            teamFO: teamFOPercent
+        };
+
         renderTable();
     } catch (e) { container.innerHTML = "<h1>Error loading team.</h1>"; }
 }
@@ -68,21 +95,6 @@ async function loadTeamData(teamName) {
 function renderTable() {
     const s = standings[currentData.team] || { rec: '0-0-0', streak: [] };
     
-    // --- Calculate Team FO% ---
-    const winIdx = currentData.headers.indexOf("Faceoffs Won");
-    const lossIdx = currentData.headers.indexOf("Faceoffs Lost");
-    
-    let teamWon = 0;
-    let teamLost = 0;
-    
-    currentData.rows.forEach(row => {
-        teamWon += Number(row[winIdx]) || 0;
-        teamLost += Number(row[lossIdx]) || 0;
-    });
-    
-    const teamTotal = teamWon + teamLost;
-    const teamFOPercent = teamTotal > 0 ? ((teamWon / teamTotal) * 100).toFixed(1) + "%" : "0.0%";
-
     container.innerHTML = `
         <div class="roster-header">
             <div style="display:flex; align-items:center; gap:15px;">
@@ -91,7 +103,7 @@ function renderTable() {
                     <h1 style="margin:0;">${currentData.team}</h1>
                     <div style="display:flex; gap:10px; align-items:center;">
                         <span class="record-badge">${s.rec}</span>
-                        <span class="team-fo-badge">Team FO: ${teamFOPercent}</span>
+                        <span class="team-fo-badge">Team FO: ${currentData.teamFO}</span>
                     </div>
                     <div class="last-5">${s.streak.map(g => `<div class="pill ${g}">${g}</div>`).join('')}</div>
                 </div>
