@@ -1,157 +1,104 @@
-console.log("App version 8.1.8 - Ultra Condensed Engine");
+console.log("App v8.1.9 - Ultra Compressed + Fail-Safe");
 
 var GOOGLE_URL = "https://script.google.com/macros/s/AKfycbyiUE8SnfMzVvqxlqeeoyaWXRyF2bDqEEdqBJ4FMIiMlhyCozsEGAowpwe6iiO-KJxN/exec";
 var STANDINGS_API = "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://api-web.nhle.com/v1/standings/now");
-var SCHEDULE_API = "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://api-web.nhle.com/v1/schedule/now");
 
 var container = document.getElementById('app');
-var dataCache = { standings: null, matchups: null, raw: {} };
-var standings = {};
+var standings = {}; 
 var currentData = null;
 var sortDir = 1;
 
-var displayNames = {
-    "RawData": "Player ENG Stats",
-    "VS Empty": "Team Stats vs Empty Net",
-    "Net Empty": "Team Stats with Net Empty"
-};
-
-function refreshApp() {
-    dataCache = { standings: null, matchups: null, raw: {} };
-    loadDashboard();
-}
-
 async function fetchStandings() {
-    if (dataCache.standings) return dataCache.standings;
     try {
         var res = await fetch(STANDINGS_API);
         var data = await res.json();
         if (data && data.standings) {
-            data.standings.forEach(function(s) {
-                var abbrev = (s.teamAbbrev && s.teamAbbrev.default) ? s.teamAbbrev.default : s.teamAbbrev;
-                if (abbrev) { 
-                    standings[abbrev] = { 
-                        rec: (s.wins || 0) + "-" + (s.losses || 0) + "-" + (s.otLosses || 0),
-                        gp: s.gamesPlayed,
-                        pts: s.points,
-                        div: s.divisionName,
-                        rank: s.divisionSequence
-                    }; 
-                }
+            data.standings.forEach(s => {
+                var code = (s.teamAbbrev && s.teamAbbrev.default) ? s.teamAbbrev.default : s.teamAbbrev;
+                standings[code] = { 
+                    rec: (s.wins || 0) + "-" + (s.losses || 0) + "-" + (s.otLosses || 0),
+                    pts: s.points || 0,
+                    div: s.divisionName || "NHL",
+                    rank: s.divisionSequence || "-"
+                };
             });
-            dataCache.standings = standings;
-            return standings;
         }
-    } catch (e) { console.error("Standings error", e); }
+    } catch (e) { console.error("Standings Offline"); }
 }
 
 async function loadDashboard() {
     container.innerHTML = "<h2>...</h2>";
+    await fetchStandings();
+    
     try {
-        const [standingResult, dashboardRes] = await Promise.all([
-            fetchStandings(),
-            fetch(GOOGLE_URL + "?action=dashboard")
-        ]);
-
-        var data = await dashboardRes.json();
+        var res = await fetch(GOOGLE_URL + "?action=dashboard");
+        var teams = await res.json();
         var now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-        var html = '<div class="header-section"><h1>EMPTYNETTERS</h1><span class="sync-time">🟢 ' + now + '</span>';
-        html += ' <button onclick="refreshApp()" style="background:none; border:none; color:var(--accent-color); cursor:pointer; font-size:0.55rem;">[R]</button></div>';
-        
+        var html = '<div class="header-section"><h1>EMPTYNETTERS</h1><span class="sync-time">' + now + '</span></div>';
         html += '<div class="global-actions">';
-        html += '<button class="raw-btn" onclick="loadMatchups()">Matchups</button>';
-        html += '<button class="raw-btn" onclick="loadRawData(\'RawData\')">Players</button>';
-        html += '<button class="raw-btn" onclick="loadRawData(\'VS Empty\')">Vs EN</button>';
-        html += '<button class="raw-btn" onclick="loadRawData(\'Net Empty\')">With EN</button>';
+        html += '<button class="raw-btn" onclick="loadMatchups()">MATCHUPS</button>';
+        html += '<button class="raw-btn" onclick="loadRawData(\'RawData\')">PLAYERS</button>';
+        html += '<button class="raw-btn" onclick="loadRawData(\'VS Empty\')">VS EN</button>';
+        html += '<button class="raw-btn" onclick="loadRawData(\'Net Empty\')">WITH EN</button>';
         html += '</div>';
 
-        var divisions = {};
-        data.forEach(function(item) {
-            var s = standings[item.team] || { rec: '0-0-0', div: 'Other', pts: 0, rank: '-', gp: 0 };
-            if (!divisions[s.div]) divisions[s.div] = [];
-            divisions[s.div].push({ team: item.team, s: s });
+        // Fail-Safe Grouping: Every team in 'teams' will be rendered
+        var groups = {};
+        teams.forEach(t => {
+            var s = standings[t.team] || { rec: "-", pts: "-", div: "Other", rank: "-" };
+            var d = s.div;
+            if (!groups[d]) groups[d] = [];
+            groups[d].push({ team: t.team, s: s });
         });
 
-        ["Atlantic", "Metropolitan", "Central", "Pacific"].forEach(divName => {
-            if (!divisions[divName]) return;
-            divisions[divName].sort((a,b) => a.s.rank - b.s.rank);
+        var order = ["Atlantic", "Metropolitan", "Central", "Pacific", "Other"];
+        order.forEach(dName => {
+            if (!groups[dName]) return;
+            groups[dName].sort((a,b) => (a.s.rank === "-" ? 1 : a.s.rank - b.s.rank));
 
-            html += '<div class="division-header">' + divName + '</div>';
-            html += '<table class="standings-table"><thead><tr><th class="rank-cell">#</th><th>Team</th><th class="stat-cell">GP</th><th class="stat-cell">Record</th><th class="stat-cell">PTS</th></tr></thead><tbody>';
+            html += '<div class="div-head">' + dName + '</div>';
+            html += '<table class="s-table"><thead><tr><th class="r-cell">#</th><th>TEAM</th><th class="st-cell">PTS</th><th class="st-cell">RECORD</th></tr></thead><tbody>';
             
-            divisions[divName].forEach(obj => {
+            groups[dName].forEach(obj => {
                 html += '<tr onclick="loadTeamData(\'' + obj.team + '\')">';
-                html += '<td class="rank-cell">' + obj.s.rank + '</td>';
-                html += '<td><div class="team-cell"><img src="https://assets.nhle.com/logos/nhl/svg/' + obj.team + '_light.svg" class="team-logo-small">' + obj.team + '</div></td>';
-                html += '<td class="stat-cell">' + obj.s.gp + '</td>';
-                html += '<td class="stat-cell" style="font-family:monospace;">' + obj.s.rec + '</td>';
-                html += '<td class="stat-cell pts-cell">' + obj.s.pts + '</td>';
+                html += '<td class="r-cell">' + obj.s.rank + '</td>';
+                html += '<td><div class="t-cell"><img src="https://assets.nhle.com/logos/nhl/svg/' + obj.team + '_light.svg" class="t-logo">' + obj.team + '</div></td>';
+                html += '<td class="st-cell p-cell">' + obj.s.pts + '</td>';
+                html += '<td class="st-cell">' + obj.s.rec + '</td>';
                 html += '</tr>';
             });
             html += '</tbody></table>';
         });
 
         container.innerHTML = html;
-    } catch (e) { container.innerHTML = "<h1>Error</h1>"; }
+    } catch (e) { container.innerHTML = "<h1>Data Error</h1>"; }
 }
 
-async function loadMatchups() {
-    container.innerHTML = "<h2>Analyzing...</h2>";
-    try {
-        const [schedRes, vsEmptyRes, rawDataRes] = await Promise.all([
-            fetch(SCHEDULE_API),
-            fetch(GOOGLE_URL + "?action=raw&name=VS Empty"),
-            fetch(GOOGLE_URL + "?action=raw&name=RawData")
-        ]);
-        const sched = await schedRes.json();
-        const vs = await vsEmptyRes.json();
-        const raw = await rawDataRes.json();
-        renderMatchupsUI(sched, vs, raw);
-    } catch (e) { loadDashboard(); }
-}
-
-function renderMatchupsUI(schedData, vsEmpty, rawPlayers) {
-    var html = '<div class="roster-header"><h1>Matchups</h1><button class="back-btn" onclick="loadDashboard()">Back</button></div>';
-    schedData.gameWeek.forEach(day => {
-        if (day.games.length === 0) return;
-        html += '<h3 style="margin: 5px 0; border-bottom: 1px solid #333; font-size: 0.7rem;">' + day.date + '</h3>';
-        day.games.forEach(game => {
-            html += '<div style="padding: 4px; border-bottom: 1px solid #222; font-size: 0.75rem; display: flex; justify-content: space-between;">';
-            html += '<span><b>' + game.awayTeam.abbrev + '</b> @ <b>' + game.homeTeam.abbrev + '</b></span>';
-            html += '<span style="color:var(--accent-color);">' + new Date(game.startTimeUTC).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + '</span>';
-            html += '</div>';
-        });
-    });
-    container.innerHTML = html;
-}
-
-async function loadTeamData(teamName) {
+async function loadTeamData(team) {
     container.innerHTML = "<h2>Loading...</h2>";
     try {
-        var res = await fetch(GOOGLE_URL + "?action=team&name=" + teamName);
+        var res = await fetch(GOOGLE_URL + "?action=team&name=" + team);
         var raw = await res.json();
-        var headers = raw.headers.slice(2), rows = raw.rows.map(r => r.slice(2));
-        currentData = { type: 'team', team: teamName, headers: headers, rows: rows };
+        currentData = { type: 'team', team: team, headers: raw.headers.slice(2), rows: raw.rows.map(r => r.slice(2)) };
         renderTable();
     } catch (e) { loadDashboard(); }
 }
 
-async function loadRawData(sheetName) {
-    container.innerHTML = "<h2>Loading...</h2>";
+async function loadRawData(name) {
+    container.innerHTML = "<h2>...</h2>";
     try {
-        var res = await fetch(GOOGLE_URL + "?action=raw&name=" + encodeURIComponent(sheetName));
+        var res = await fetch(GOOGLE_URL + "?action=raw&name=" + encodeURIComponent(name));
         var raw = await res.json();
-        currentData = { type: 'raw', displayName: displayNames[sheetName], headers: raw.headers, rows: raw.rows };
+        currentData = { type: 'raw', name: name, headers: raw.headers, rows: raw.rows };
         renderTable();
     } catch (e) { loadDashboard(); }
 }
 
 function renderTable() {
-    var html = '<div class="roster-header"><h1>' + (currentData.type === 'team' ? currentData.team : currentData.displayName) + '</h1>';
-    html += '<button class="back-btn" onclick="loadDashboard()">Back</button></div>';
+    var html = '<div class="header-section"><h1>' + (currentData.team || currentData.name) + '</h1><button class="back-btn" onclick="loadDashboard()">BACK</button></div>';
     html += '<div class="table-wrapper"><table><thead><tr>';
-    currentData.headers.forEach((h, i) => { html += '<th onclick="sortTable(' + i + ')">' + h + ' ↕</th>'; });
+    currentData.headers.forEach((h, i) => { html += '<th onclick="sortTable(' + i + ')">' + h + '</th>'; });
     html += '</tr></thead><tbody>';
     currentData.rows.forEach(row => { html += '<tr>' + row.map(c => '<td>' + c + '</td>').join('') + '</tr>'; });
     html += '</tbody></table></div>';
@@ -165,6 +112,10 @@ function sortTable(idx) {
         return (!isNaN(nA) && !isNaN(nB)) ? (nA - nB) * sortDir : a[idx].toString().localeCompare(b[idx].toString()) * sortDir;
     });
     renderTable();
+}
+
+async function loadMatchups() {
+    container.innerHTML = "<h2>Coming Soon</h2><button class='back-btn' onclick='loadDashboard()'>BACK</button>";
 }
 
 loadDashboard();
