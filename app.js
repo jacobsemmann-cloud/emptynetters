@@ -1,6 +1,6 @@
 const GOOGLE_URL = "https://script.google.com/macros/s/AKfycbxYqfqphuMSHm0eJUae7jlNE89UUa70-SSl1bmhBlHoxv-SSZ0q0l7-eVzUHTlh6isC/exec"; 
-const NHL_API_STANDINGS = "https://api-web.nhle.com/v1/standings/now";
-const container = document.getElementById('app-container');
+const STANDINGS_API = "https://api-web.nhle.com/v1/standings/now";
+const container = document.getElementById('app');
 
 const NHL_TEAMS = [
     'ANA', 'BOS', 'BUF', 'CAR', 'CBJ', 'CGY', 'CHI', 'COL', 
@@ -9,28 +9,24 @@ const NHL_TEAMS = [
     'STL', 'TBL', 'TOR', 'UTA', 'VAN', 'VGK', 'WSH', 'WPG'
 ];
 
-let leagueStandings = {};
+let standings = {};
 let currentData = null;
 let sortDir = 1;
 
-// Fetch Live NHL Records
 async function fetchStandings() {
     try {
-        const res = await fetch(NHL_API_STANDINGS);
+        const res = await fetch(STANDINGS_API);
         const data = await res.json();
         data.standings.forEach(s => {
-            leagueStandings[s.teamAbbrev.default] = {
-                wins: s.wins,
-                losses: s.losses,
-                otl: s.otLosses,
-                points: s.points,
-                last5: s.l10Record // API provides L10, we'll slice for UI
+            standings[s.teamAbbrev.default] = {
+                rec: `${s.wins}-${s.losses}-${s.otLosses}`,
+                streak: s.l10Record ? s.l10Record.split('').slice(0, 5) : [] 
             };
         });
     } catch (e) { console.error("Standings fetch failed", e); }
 }
 
-function getLogo(team) { return `https://assets.nhle.com/logos/nhl/svg/${team}_light.svg`; }
+function getLogo(t) { return `https://assets.nhle.com/logos/nhl/svg/${t}_light.svg`; }
 
 function getDFOLink(team) {
     const dfoMapping = { 'ANA': 'anaheim-ducks', 'BOS': 'boston-bruins', 'BUF': 'buffalo-sabres', 'CAR': 'carolina-hurricanes', 'CBJ': 'columbus-blue-jackets', 'CGY': 'calgary-flames', 'CHI': 'chicago-blackhawks', 'COL': 'colorado-avalanche', 'DAL': 'dallas-stars', 'DET': 'detroit-red-wings', 'EDM': 'edmonton-oilers', 'FLA': 'florida-panthers', 'LAK': 'los-angeles-kings', 'MIN': 'minnesota-wild', 'MTL': 'montreal-canadiens', 'NJD': 'new-jersey-devils', 'NSH': 'nashville-predators', 'NYI': 'new-york-islanders', 'NYR': 'new-york-rangers', 'OTT': 'ottawa-senators', 'PHI': 'philadelphia-flyers', 'PIT': 'pittsburgh-penguins', 'SEA': 'seattle-kraken', 'SJS': 'san-jose-sharks', 'STL': 'st-louis-blues', 'TBL': 'tampa-bay-lightning', 'TOR': 'toronto-maple-leafs', 'UTA': 'utah-hockey-club', 'VAN': 'vancouver-canucks', 'VGK': 'vegas-golden-knights', 'WSH': 'washington-capitals', 'WPG': 'winnipeg-jets' };
@@ -38,9 +34,8 @@ function getDFOLink(team) {
 }
 
 async function loadDashboard() {
-    container.innerHTML = "<h1>Loading Stats & Standings...</h1>";
+    container.innerHTML = "<h2>Loading Stats & Standings...</h2>";
     await fetchStandings();
-    
     try {
         const res = await fetch(`${GOOGLE_URL}?action=dashboard`);
         const data = await res.json();
@@ -49,13 +44,12 @@ async function loadDashboard() {
 
         let html = `<h1>NHL Dashboard</h1><div class="team-grid">`;
         html += filtered.map(item => {
-            const s = leagueStandings[item.team] || { wins:0, losses:0, otl:0 };
+            const s = standings[item.team] || { rec: '0-0-0' };
             return `
             <div class="card" onclick="loadTeamData('${item.team}')">
                 <img src="${getLogo(item.team)}" class="team-logo">
-                <h3>${item.team}</h3>
-                <div class="record-text">${s.wins}-${s.losses}-${s.otl}</div>
-                <p>${item.players} Players</p>
+                <div style="font-weight:bold; margin:5px 0;">${item.team}</div>
+                <div class="record-badge">${s.rec}</div>
             </div>`;
         }).join('');
         container.innerHTML = html + `</div>`;
@@ -63,56 +57,74 @@ async function loadDashboard() {
 }
 
 async function loadTeamData(teamName) {
-    container.innerHTML = `<h1>Loading ${teamName}...</h1>`;
+    container.innerHTML = `<h2>Loading ${teamName}...</h2>`;
     try {
         const res = await fetch(`${GOOGLE_URL}?action=team&name=${teamName}`);
-        currentData = await res.json();
-        renderTable(currentData);
+        const raw = await res.json();
+        
+        // --- Calculate Faceoff % on the Fly ---
+        const winIdx = raw.headers.indexOf("Faceoffs Won");
+        const lossIdx = raw.headers.indexOf("Faceoffs Lost");
+        
+        // Add "FO%" to headers at index 1
+        raw.headers.splice(1, 0, "FO%");
+        
+        // Update every row with the calculation
+        raw.rows = raw.rows.map(row => {
+            const won = Number(row[winIdx]) || 0;
+            const lost = Number(row[lossIdx]) || 0;
+            const total = won + lost;
+            const pct = total > 0 ? ((won / total) * 100).toFixed(1) + "%" : "0.0%";
+            row.splice(1, 0, pct); // Insert result into row
+            return row;
+        });
+
+        currentData = raw;
+        renderTable();
     } catch (e) { container.innerHTML = "<h1>Error loading team.</h1>"; }
 }
 
-function renderTable(data) {
-    const s = leagueStandings[data.team] || { wins:0, losses:0, otl:0, last5: [] };
-    const playerIdx = data.headers.indexOf("Player");
+function renderTable() {
+    const s = standings[currentData.team] || { rec: '0-0-0', streak: [] };
+    const playerIdx = currentData.headers.indexOf("Player");
     
-    let html = `
+    container.innerHTML = `
         <div class="roster-header">
-            <div class="team-info-box">
-                <img src="${getLogo(data.team)}" style="width:80px;">
+            <div style="display:flex; align-items:center; gap:15px;">
+                <img src="${getLogo(currentData.team)}" style="width:70px;">
                 <div>
-                    <h1 style="margin:0;">${data.team} Roster</h1>
-                    <div style="font-weight:bold; color:var(--text-dim);">${s.wins}-${s.losses}-${s.otl}</div>
+                    <h1 style="margin:0;">${currentData.team}</h1>
+                    <div class="record-badge">${s.rec}</div>
+                    <div class="last-5">${s.streak.map(g => `<div class="pill ${g}">${g}</div>`).join('')}</div>
                 </div>
             </div>
-            <div class="btn-group">
-                <a href="${getDFOLink(data.team)}" target="_blank" class="dfo-btn">Daily Faceoff Lines</a>
-                <button class="back-btn" onclick="loadDashboard()">Back to Dashboard</button>
+            <div style="display:flex; gap:10px;">
+                <a href="${getDFOLink(currentData.team)}" target="_blank" class="dfo-btn">Daily Faceoff Lines</a>
+                <button onclick="loadDashboard()" style="padding:10px; cursor:pointer; background:#21262d; color:white; border:1px solid #30363d; border-radius:4px;">Back</button>
             </div>
         </div>
         <div class="table-wrapper">
             <table>
-                <thead><tr>${data.headers.map((h, i) => `<th onclick="sortTable(${i})">${h}</th>`).join('')}</tr></thead>
+                <thead><tr>${currentData.headers.map((h, i) => `<th onclick="sortTable(${i})">${h}</th>`).join('')}</tr></thead>
                 <tbody>
-                    ${data.rows.map(row => `
-                        <tr>
-                            ${row.map((cell, idx) => idx === playerIdx ? 
-                                `<td><div class="player-cell"><div class="player-mug">${cell.split(' ').map(n=>n[0]).join('')}</div>${cell}</div></td>` : 
-                                `<td>${cell}</td>`).join('')}
-                        </tr>`).join('')}
+                    ${currentData.rows.map(row => `
+                        <tr>${row.map((cell, idx) => {
+                            const cls = idx === 1 ? 'style="font-weight:bold; color:#58a6ff; background:rgba(88,166,255,0.05);"' : '';
+                            return `<td ${cls}>${cell}</td>`;
+                        }).join('')}</tr>`).join('')}
                 </tbody>
             </table>
         </div>`;
-    container.innerHTML = html;
 }
 
 function sortTable(idx) {
     sortDir *= -1;
     currentData.rows.sort((a, b) => {
-        let vA = a[idx], vB = b[idx];
-        const nA = parseFloat(vA.toString().replace(/:/g, '')), nB = parseFloat(vB.toString().replace(/:/g, ''));
-        return (!isNaN(nA) && !isNaN(nB)) ? (nA - nB) * sortDir : vA.toString().localeCompare(vB.toString()) * sortDir;
+        const nA = parseFloat(a[idx].toString().replace(/[%:]/g, ''));
+        const nB = parseFloat(b[idx].toString().replace(/[%:]/g, ''));
+        return (!isNaN(nA) && !isNaN(nB)) ? (nA - nB) * sortDir : a[idx].toString().localeCompare(b[idx].toString()) * sortDir;
     });
-    renderTable(currentData);
+    renderTable();
 }
 
 loadDashboard();
