@@ -1,24 +1,19 @@
-console.log("App version 8.1.6 - Utah Fix & Compact Engine");
+console.log("App version 8.1.7 - Restored UI + Utah Fix");
 
 var GOOGLE_URL = "https://script.google.com/macros/s/AKfycbyiUE8SnfMzVvqxlqeeoyaWXRyF2bDqEEdqBJ4FMIiMlhyCozsEGAowpwe6iiO-KJxN/exec";
 var STANDINGS_API = "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://api-web.nhle.com/v1/standings/now");
+var SCHEDULE_API = "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://api-web.nhle.com/v1/schedule/now");
 
 var container = document.getElementById('app');
 var standingsData = {}; 
 var currentData = null;
 var sortDir = 1;
 
-/**
- * Normalization Map: Ensures Utah and other teams match the NHL API keys
- */
+// Normalization Map for Utah and others
 const TEAM_MAP = { 
-    "UTAH": "UTA", 
-    "UTM": "UTA", 
-    "LA": "LAK", 
-    "SJ": "SJS", 
-    "TB": "TBL", 
-    "NJ": "NJD",
-    "NSH": "NSH"
+    "UTAH": "UTA", "UTM": "UTA", 
+    "LA": "LAK", "SJ": "SJS", 
+    "TB": "TBL", "NJ": "NJD"
 };
 
 async function fetchStandings() {
@@ -37,11 +32,11 @@ async function fetchStandings() {
                 };
             });
         }
-    } catch (e) { console.error("Standings Offline", e); }
+    } catch (e) { console.error("Standings Offline"); }
 }
 
 async function loadDashboard() {
-    container.innerHTML = "<h2>Syncing Data...</h2>";
+    container.innerHTML = "<h2>Syncing League Data...</h2>";
     await fetchStandings();
     
     try {
@@ -49,70 +44,44 @@ async function loadDashboard() {
         var sheetTeams = await res.json();
         var now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-        var html = `
-            <div class="header">
-                <h1>EMPTYNETTERS</h1>
-                <div class="nav-group">
-                    <button class="btn" onclick="loadMatchups()">MATCHUPS</button>
-                    <button class="btn" onclick="loadRawData('RawData')">PLAYERS</button>
-                    <button class="btn" onclick="loadRawData('VS Empty')">VS EN</button>
-                    <span style="font-size:10px; color:#8b949e; align-self:center; margin-left:10px;">🟢 ${now}</span>
-                </div>
-            </div>`;
+        // Restored 8.1 Header and Navigation
+        var html = '<div class="header-section"><h1>EMPTYNETTERS</h1><span class="sync-time">🟢 Live • ' + now + '</span></div>';
+        
+        html += '<div class="global-actions">';
+        html += '<button class="raw-btn" onclick="loadMatchups()">Daily Matchups</button>';
+        html += '<button class="raw-btn" onclick="loadRawData(\'RawData\')">Player ENG Stats</button>';
+        html += '<button class="raw-btn" onclick="loadRawData(\'VS Empty\')">Team Stats vs Empty Net</button>';
+        html += '</div>';
 
-        // Grouping by Division
+        // Division Grouping
         var divisions = { "Atlantic": [], "Metropolitan": [], "Central": [], "Pacific": [] };
         
         sheetTeams.forEach(t => {
             let code = t.team.trim().toUpperCase();
             code = TEAM_MAP[code] || code;
-            
             const stats = standingsData[code] || { rec: "-", pts: "-", gp: "-", div: "Other", rank: "-" };
             const div = stats.div || "Other";
-            
-            if (divisions[div]) {
-                divisions[div].push({ code: code, stats: stats });
-            } else {
-                if (!divisions["Other"]) divisions["Other"] = [];
-                divisions["Other"].push({ code: code, stats: stats });
-            }
+            if (divisions[div]) divisions[div].push({ code: code, stats: stats });
         });
 
         ["Atlantic", "Metropolitan", "Central", "Pacific"].forEach(divName => {
             if (divisions[divName].length === 0) return;
             divisions[divName].sort((a,b) => a.stats.rank - b.stats.rank);
 
-            html += `
-                <div class="div-section">
-                    <div class="div-title">${divName} Division</div>
-                    <table class="compact-table">
-                        <thead>
-                            <tr>
-                                <th style="width:20px;">#</th>
-                                <th>TEAM</th>
-                                <th class="center">GP</th>
-                                <th class="center">RECORD</th>
-                                <th class="center">PTS</th>
-                            </tr>
-                        </thead>
-                        <tbody>`;
+            html += '<div class="division-block">';
+            html += '<div class="division-title">' + divName + ' Division</div>';
+            html += '<table class="standings-table"><thead><tr><th style="width:25px;">#</th><th>Team</th><th class="stat-cell">GP</th><th class="stat-cell">Record</th><th class="pts-cell">PTS</th></tr></thead><tbody>';
             
             divisions[divName].forEach(team => {
-                html += `
-                    <tr onclick="loadTeamData('${team.code}')">
-                        <td class="center" style="color:#8b949e;">${team.stats.rank}</td>
-                        <td>
-                            <div class="team-box">
-                                <img src="https://assets.nhle.com/logos/nhl/svg/${team.code}_light.svg" class="logo">
-                                ${team.code}
-                            </div>
-                        </td>
-                        <td class="center">${team.stats.gp}</td>
-                        <td class="center" style="font-family:monospace;">${team.stats.rec}</td>
-                        <td class="center pts">${team.stats.pts}</td>
-                    </tr>`;
+                html += '<tr onclick="loadTeamData(\'' + team.code + '\')">';
+                html += '<td style="color:#8b949e; text-align:center;">' + team.stats.rank + '</td>';
+                html += '<td><div class="team-cell"><img src="https://assets.nhle.com/logos/nhl/svg/' + team.code + '_light.svg" class="tiny-logo">' + team.code + '</div></td>';
+                html += '<td class="stat-cell">' + team.stats.gp + '</td>';
+                html += '<td class="stat-cell">' + team.stats.rec + '</td>';
+                html += '<td class="pts-cell">' + team.stats.pts + '</td>';
+                html += '</tr>';
             });
-            html += `</tbody></table></div>`;
+            html += '</tbody></table></div>';
         });
 
         container.innerHTML = html;
@@ -140,17 +109,12 @@ async function loadRawData(name) {
 }
 
 function renderTable() {
-    var html = `
-        <div class="header">
-            <h1>${currentData.team || currentData.name}</h1>
-            <button class="btn" onclick="loadDashboard()">BACK</button>
-        </div>
-        <div class="table-wrapper">
-            <table>
-                <thead><tr>${currentData.headers.map((h, i) => `<th onclick="sortTable(${i})">${h} ↕</th>`).join('')}</tr></thead>
-                <tbody>${currentData.rows.map(row => `<tr>${row.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>
-            </table>
-        </div>`;
+    var html = '<div class="header-section"><h1>' + (currentData.team || currentData.name) + '</h1><button class="back-btn" onclick="loadDashboard()">Back</button></div>';
+    html += '<div class="table-wrapper"><table><thead><tr>';
+    currentData.headers.forEach((h, i) => { html += '<th onclick="sortTable(' + i + ')">' + h + ' ↕</th>'; });
+    html += '</tr></thead><tbody>';
+    currentData.rows.forEach(row => { html += '<tr>' + row.map(c => '<td>' + c + '</td>').join('') + '</tr>'; });
+    html += '</tbody></table></div>';
     container.innerHTML = html;
 }
 
@@ -164,7 +128,7 @@ function sortTable(idx) {
 }
 
 async function loadMatchups() {
-    container.innerHTML = "<h2>Matchups analysis pending...</h2><button class='btn' onclick='loadDashboard()'>BACK</button>";
+    container.innerHTML = "<h2>Matchups Loading...</h2><button class='back-btn' onclick='loadDashboard()'>Back</button>";
 }
 
 loadDashboard();
