@@ -1,11 +1,12 @@
-console.log("App v8.2.5 - Proxy Fallback + Fail-Safe Engine");
+console.log("App v8.2.5 - Proxy Fallback + Caching Engine");
 
 var GOOGLE_URL = "https://script.google.com/macros/s/AKfycbyiUE8SnfMzVvqxlqeeoyaWXRyF2bDqEEdqBJ4FMIiMlhyCozsEGAowpwe6iiO-KJxN/exec";
 
-// PRIMARY PROXY
-var P1 = "https://api.allorigins.win/raw?url=";
-// BACKUP PROXY (CORSProxy.io)
-var P2 = "https://corsproxy.io/?";
+// PROXY LIST for Fallover
+var PROXIES = [
+    "https://api.allorigins.win/raw?url=",
+    "https://corsproxy.io/?"
+];
 
 var NHL_STANDINGS = "https://api-web.nhle.com/v1/standings/now";
 var NHL_SCHEDULE = "https://api-web.nhle.com/v1/schedule/now";
@@ -25,34 +26,24 @@ var sortDir = 1;
 const MAP = { "UTAH": "UTA", "UTM": "UTA", "LA": "LAK", "SJ": "SJS", "TB": "TBL", "NJ": "NJD" };
 
 /**
- * PROXY FETCHER: Tries Primary, then Backup
+ * SMART FETCH: Tries multiple proxies if one fails
  */
 async function smartFetch(url) {
-    try {
-        // Try Proxy 1
-        let res = await fetch(P1 + encodeURIComponent(url));
-        if (res.ok) return await res.json();
-    } catch (e) {
-        console.warn("Proxy 1 Failed, trying Proxy 2...");
+    for (let proxy of PROXIES) {
         try {
-            // Try Proxy 2
-            let res = await fetch(P2 + encodeURIComponent(url));
+            let res = await fetch(proxy + encodeURIComponent(url));
             if (res.ok) return await res.json();
-        } catch (e2) {
-            console.error("All Proxies Failed.");
-            return null;
-        }
+        } catch (e) { console.warn(`Proxy ${proxy} failed, trying next...`); }
     }
+    return null;
 }
 
 async function init() {
-    // Only fetch if cache is empty
     if (Object.keys(cache.standings).length === 0) {
         const [stdData, schData] = await Promise.all([
             smartFetch(NHL_STANDINGS),
             smartFetch(NHL_SCHEDULE)
         ]);
-
         if (stdData && stdData.standings) {
             stdData.standings.forEach(s => {
                 let code = (s.teamAbbrev && s.teamAbbrev.default) ? s.teamAbbrev.default : s.teamAbbrev;
@@ -75,23 +66,19 @@ function setFilter(type) {
 async function loadDashboard() {
     container.innerHTML = "<h2>Syncing...</h2>";
     await init();
-    
     try {
         if (!cache.dashboardTeams) {
             let res = await fetch(GOOGLE_URL + "?action=dashboard");
             cache.dashboardTeams = await res.json();
         }
-
         let now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         let html = `<div class="header-section"><h1>EMPTYNETTERS</h1><span style="font-size:0.8rem;color:#8b949e">${now}</span></div>`;
-        
         html += `<div class="global-actions">
             <button class="raw-btn" onclick="loadMatchups()">DAILY MATCHUPS</button>
             <button class="raw-btn" onclick="loadRawData('RawData')">PLAYER STATS</button>
             <button class="raw-btn" onclick="loadRawData('VS Empty')">VS EN</button>
             <button class="raw-btn" onclick="loadRawData('Net Empty')">WITH EN</button>
         </div>`;
-
         html += `<div class="filter-bar">
             <button class="filter-btn ${currentFilter === 'all' ? 'active' : ''}" onclick="setFilter('all')">All Teams</button>
             <button class="filter-btn ${currentFilter === 'today' ? 'active' : ''}" onclick="setFilter('today')">Playing Today</button>
@@ -109,7 +96,6 @@ async function loadDashboard() {
             let code = (MAP[t.team.trim().toUpperCase()] || t.team.trim().toUpperCase());
             if (currentFilter === 'today' && !playingToday.includes(code)) return;
             if (currentFilter === 'tomorrow' && !playingTomorrow.includes(code)) return;
-
             let s = cache.standings[code] || { rec: "-", pts: "-", gp: "-", div: "Other", rank: 99, fullName: code };
             let d = s.div;
             if (code === "UTA") d = "Central";
@@ -123,10 +109,10 @@ async function loadDashboard() {
         ["Atlantic", "Metropolitan", "Central", "Pacific"].forEach(dName => {
             if (divs[dName].length === 0) return;
             divs[dName].sort((a,b) => a.s.rank - b.s.rank);
-            html += `<div class="div-label">${dName}</div><table class="s-table"><thead><tr><th style="width:30px">#</th><th>TEAM</th><th class="st-cell">GP</th><th class="st-cell">RECORD</th><th class="p-cell">PTS</th></tr></thead><tbody>`;
+            html += `<div class="div-label">${dName}</div><table class="s-table"><tbody>`;
             divs[dName].forEach(team => {
                 html += `<tr onclick="loadTeamData('${team.code}')">
-                    <td style="color:#8b949e; text-align:center">${team.s.rank === 99 ? "-" : team.s.rank}</td>
+                    <td style="color:#8b949e; width:30px;">${team.s.rank === 99 ? "-" : team.s.rank}</td>
                     <td><div class="t-cell"><img src="https://assets.nhle.com/logos/nhl/svg/${team.code}_light.svg" class="t-logo">${team.s.fullName || team.code}</div></td>
                     <td class="st-cell">${team.s.gp}</td><td class="st-cell">${team.s.rec}</td><td class="p-cell">${team.s.pts}</td>
                 </tr>`;

@@ -9,62 +9,28 @@
             --bg: #0d1117; --txt: #c9d1d9; --card: #161b22;
             --brd: #30363d; --acc: #58a6ff; --hov: #21262d;
         }
-        body { 
-            font-family: -apple-system, system-ui, sans-serif; 
-            background: var(--bg); color: var(--txt); margin: 0; padding: 10px; 
-        }
+        body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--txt); margin: 0; padding: 10px; }
         #app { max-width: 1100px; margin: 0 auto; }
-
-        /* Header & Nav */
-        .header-section { text-align: center; margin-bottom: 15px; }
+        .header-section { text-align: center; margin-bottom: 15px; height: 40px; }
         .header-section h1 { margin: 0; font-style: italic; color: var(--acc); font-size: 2.2rem; }
         .global-actions { margin: 15px 0; display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
-        
-        .raw-btn, .back-btn { 
-            background: var(--card); color: var(--acc); border: 1px solid var(--brd); 
-            padding: 12px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 1rem;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.2); transition: transform 0.1s;
-        }
-        .raw-btn:hover { transform: translateY(-2px); border-color: var(--acc); }
-
-        /* Filter Bar Styles */
+        .raw-btn, .back-btn { background: var(--card); color: var(--acc); border: 1px solid var(--brd); padding: 12px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 1rem; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
         .filter-bar { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; }
-        .filter-btn { 
-            background: transparent; color: #8b949e; border: 1px solid var(--brd); 
-            padding: 5px 12px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; font-weight: bold;
-        }
+        .filter-btn { background: transparent; color: #8b949e; border: 1px solid var(--brd); padding: 5px 12px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; font-weight: bold; }
         .filter-btn.active { background: var(--acc); color: white; border-color: var(--acc); }
-
-        /* 2X Scaled Standings Table */
-        .div-label { 
-            font-size: 1rem; color: #8b949e; text-transform: uppercase; 
-            border-bottom: 2px solid var(--brd); margin-top: 20px; padding-bottom: 5px;
-        }
+        .div-label { font-size: 1rem; color: #8b949e; text-transform: uppercase; border-bottom: 2px solid var(--brd); margin-top: 20px; padding-bottom: 5px; }
         .s-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
-        .s-table th { 
-            text-align: left; font-size: 0.8rem; color: #8b949e; 
-            padding: 10px; text-transform: uppercase; border-bottom: 1px solid var(--brd);
-        }
-        .s-table td { 
-            padding: 0 10px; border-bottom: 1px solid #21262d; 
-            cursor: pointer; height: 40px; line-height: 40px; 
-            font-size: 1.1rem; 
-        }
-        .s-table tr:hover td { background: var(--hov); }
-
+        .s-table td { padding: 0 10px; border-bottom: 1px solid #21262d; cursor: pointer; height: 40px; font-size: 1.1rem; }
         .t-cell { display: flex; align-items: center; gap: 12px; font-weight: bold; }
-        .t-logo { width: 28px !important; height: 28px !important; object-fit: contain; } 
-        
+        .t-logo { width: 28px; height: 28px; object-fit: contain; } 
         .st-cell { text-align: center; width: 60px; font-family: monospace; }
         .p-cell { font-weight: bold; color: var(--acc); text-align: center; width: 50px; }
-
-        .matchup-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 15px; margin-top: 20px; }
+        .matchup-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 15px; }
         .m-card { background: var(--card); border: 1px solid var(--brd); border-radius: 8px; padding: 15px; }
-
         .table-wrapper { overflow-x: auto; border: 1px solid var(--brd); border-radius: 8px; height: 80vh; }
-        table { width: 100%; border-collapse: collapse; text-align: right; white-space: nowrap; font-size: 0.9rem; }
-        th { background: var(--card); position: sticky; top: 0; z-index: 10; padding: 12px; cursor: pointer; }
-        td { padding: 10px; border-bottom: 1px solid var(--brd); }
+        table { width: 100%; border-collapse: collapse; text-align: right; white-space: nowrap; }
+        th, td { padding: 10px; }
+        th { background: var(--card); position: sticky; top: 0; z-index: 10; cursor: pointer; }
         th:nth-child(1), td:nth-child(1) { text-align: left; position: sticky; left: 0; background: var(--bg); z-index: 5; }
     </style>
 </head>
