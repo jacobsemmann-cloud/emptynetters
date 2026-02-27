@@ -1,4 +1,4 @@
-console.log("App version 8.1.8 - Compact Standing Rows + All Buttons");
+console.log("App version 8.1.9 - Ultra-Density Standings");
 
 var GOOGLE_URL = "https://script.google.com/macros/s/AKfycbyiUE8SnfMzVvqxlqeeoyaWXRyF2bDqEEdqBJ4FMIiMlhyCozsEGAowpwe6iiO-KJxN/exec";
 var STANDINGS_API = "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://api-web.nhle.com/v1/standings/now");
@@ -8,12 +8,7 @@ var standingsData = {};
 var currentData = null;
 var sortDir = 1;
 
-// Normalization Map for Utah and other variants
-const TEAM_MAP = { 
-    "UTAH": "UTA", "UTM": "UTA", "UTA": "UTA",
-    "LA": "LAK", "SJ": "SJS", 
-    "TB": "TBL", "NJ": "NJD"
-};
+const TEAM_MAP = { "UTAH": "UTA", "UTM": "UTA", "LA": "LAK", "SJ": "SJS", "TB": "TBL", "NJ": "NJD" };
 
 async function fetchStandings() {
     try {
@@ -24,10 +19,7 @@ async function fetchStandings() {
                 var abbrev = (s.teamAbbrev && s.teamAbbrev.default) ? s.teamAbbrev.default : s.teamAbbrev;
                 standingsData[abbrev.toUpperCase()] = {
                     rec: (s.wins || 0) + "-" + (s.losses || 0) + "-" + (s.otLosses || 0),
-                    pts: s.points,
-                    gp: s.gamesPlayed,
-                    div: s.divisionName,
-                    rank: s.divisionSequence
+                    pts: s.points, gp: s.gamesPlayed, div: s.divisionName, rank: s.divisionSequence
                 };
             });
         }
@@ -43,9 +35,8 @@ async function loadDashboard() {
         var sheetTeams = await res.json();
         var now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-        var html = '<div class="header-section"><h1>EMPTYNETTERS</h1><span class="sync-time">🟢 Live • ' + now + '</span></div>';
+        var html = '<div class="header-section"><h1>EMPTYNETTERS</h1><span style="font-size:0.8rem;color:#8b949e">🟢 Live • ' + now + '</span></div>';
         
-        // ALL 4 BUTTONS RESTORED
         html += '<div class="global-actions">';
         html += '<button class="raw-btn" onclick="loadMatchups()">Daily Matchups</button>';
         html += '<button class="raw-btn" onclick="loadRawData(\'RawData\')">Player Stats</button>';
@@ -58,13 +49,8 @@ async function loadDashboard() {
         sheetTeams.forEach(t => {
             let code = t.team.trim().toUpperCase();
             code = TEAM_MAP[code] || code;
-            
             let stats = standingsData[code] || { rec: "-", pts: "-", gp: "-", div: "Other", rank: "-" };
-            
-            // Force Utah into Central if API missed it
-            let div = stats.div || "Other";
-            if (code === "UTA") div = "Central";
-
+            let div = (code === "UTA") ? "Central" : (stats.div || "Other");
             if (divisions[div]) divisions[div].push({ code: code, stats: stats });
         });
 
@@ -72,12 +58,12 @@ async function loadDashboard() {
             if (divisions[divName].length === 0) return;
             divisions[divName].sort((a,b) => a.stats.rank - b.stats.rank);
 
-            html += '<div class="div-header">' + divName + '</div>';
-            html += '<table class="standings-table"><thead><tr><th style="width:20px;">#</th><th>Team</th><th class="stat-cell">GP</th><th class="stat-cell">Record</th><th class="pts-cell">PTS</th></tr></thead><tbody>';
+            html += '<div class="division-header">' + divName + '</div>';
+            html += '<table class="standings-table"><thead><tr><th style="width:20px">#</th><th>Team</th><th class="stat-cell">GP</th><th class="stat-cell">Record</th><th class="pts-cell">PTS</th></tr></thead><tbody>';
             
             divisions[divName].forEach(team => {
                 html += '<tr onclick="loadTeamData(\'' + team.code + '\')">';
-                html += '<td style="color:#8b949e; text-align:center; font-size:0.7rem;">' + team.stats.rank + '</td>';
+                html += '<td style="color:#8b949e; text-align:center">' + team.stats.rank + '</td>';
                 html += '<td><div class="team-cell"><img src="https://assets.nhle.com/logos/nhl/svg/' + team.code + '_light.svg" class="tiny-logo">' + team.code + '</div></td>';
                 html += '<td class="stat-cell">' + team.stats.gp + '</td>';
                 html += '<td class="stat-cell">' + team.stats.rec + '</td>';
