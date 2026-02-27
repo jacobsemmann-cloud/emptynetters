@@ -1,4 +1,4 @@
-console.log("App v8.2.1 - 2X UI + Matchups Engine Restored");
+console.log("App v8.2.2 - Full Names + Blank Header Fix");
 
 var GOOGLE_URL = "https://script.google.com/macros/s/AKfycbyiUE8SnfMzVvqxlqeeoyaWXRyF2bDqEEdqBJ4FMIiMlhyCozsEGAowpwe6iiO-KJxN/exec";
 var STANDINGS_API = "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://api-web.nhle.com/v1/standings/now");
@@ -20,7 +20,11 @@ async function fetchStandings() {
                 var code = (s.teamAbbrev && s.teamAbbrev.default) ? s.teamAbbrev.default : s.teamAbbrev;
                 standings[code.toUpperCase()] = {
                     rec: (s.wins || 0) + "-" + (s.losses || 0) + "-" + (s.otLosses || 0),
-                    pts: s.points, gp: s.gamesPlayed, div: s.divisionName, rank: s.divisionSequence
+                    pts: s.points, 
+                    gp: s.gamesPlayed, 
+                    div: s.divisionName, 
+                    rank: s.divisionSequence,
+                    fullName: s.teamName.default // Pull full name
                 };
             });
         }
@@ -49,7 +53,7 @@ async function loadDashboard() {
         teams.forEach(t => {
             let code = t.team.trim().toUpperCase();
             code = MAP[code] || code;
-            let s = standings[code] || { rec: "-", pts: "-", gp: "-", div: "Other", rank: 99 };
+            let s = standings[code] || { rec: "-", pts: "-", gp: "-", div: "Other", rank: 99, fullName: code };
             
             let d = s.div;
             if (code === "UTA") d = "Central";
@@ -71,7 +75,8 @@ async function loadDashboard() {
             divs[dName].forEach(team => {
                 html += '<tr onclick="loadTeamData(\'' + team.code + '\')">';
                 html += '<td style="color:#8b949e; text-align:center">' + (team.s.rank === 99 ? "-" : team.s.rank) + '</td>';
-                html += '<td><div class="t-cell"><img src="https://assets.nhle.com/logos/nhl/svg/' + team.code + '_light.svg" class="t-logo">' + team.code + '</div></td>';
+                // Using Full Name here
+                html += '<td><div class="t-cell"><img src="https://assets.nhle.com/logos/nhl/svg/' + team.code + '_light.svg" class="t-logo">' + (team.s.fullName || team.code) + '</div></td>';
                 html += '<td class="st-cell">' + team.s.gp + '</td>';
                 html += '<td class="st-cell">' + team.s.rec + '</td>';
                 html += '<td class="p-cell">' + team.s.pts + '</td>';
@@ -184,7 +189,11 @@ async function loadRawData(name) {
 }
 
 function renderTable() {
-    var html = '<div class="header-section"><h1>' + (currentData.team || currentData.name) + '</h1><button class="back-btn" onclick="loadDashboard()">BACK</button></div>';
+    // Blank title logic if name is RawData
+    var title = currentData.team || currentData.name || "";
+    if (currentData.name === "RawData") title = ""; 
+
+    var html = '<div class="header-section"><h1>' + title + '</h1><button class="back-btn" onclick="loadDashboard()">BACK</button></div>';
     html += '<div class="table-wrapper"><table><thead><tr>';
     currentData.headers.forEach((h, i) => { html += '<th onclick="sortTable(' + i + ')">' + h + '</th>'; });
     html += '</tr></thead><tbody>';
