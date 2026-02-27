@@ -60,41 +60,39 @@ async function loadTeamData(teamName) {
     container.innerHTML = `<h2>Loading ${teamName}...</h2>`;
     try {
         const res = await fetch(`${GOOGLE_URL}?action=team&name=${teamName}`);
-        const raw = await res.json();
-        
-        // --- Calculate Faceoff % on the Fly ---
-        const winIdx = raw.headers.indexOf("Faceoffs Won");
-        const lossIdx = raw.headers.indexOf("Faceoffs Lost");
-        
-        // Add "FO%" to headers at index 1
-        raw.headers.splice(1, 0, "FO%");
-        
-        // Update every row with the calculation
-        raw.rows = raw.rows.map(row => {
-            const won = Number(row[winIdx]) || 0;
-            const lost = Number(row[lossIdx]) || 0;
-            const total = won + lost;
-            const pct = total > 0 ? ((won / total) * 100).toFixed(1) + "%" : "0.0%";
-            row.splice(1, 0, pct); // Insert result into row
-            return row;
-        });
-
-        currentData = raw;
+        currentData = await res.json();
         renderTable();
     } catch (e) { container.innerHTML = "<h1>Error loading team.</h1>"; }
 }
 
 function renderTable() {
     const s = standings[currentData.team] || { rec: '0-0-0', streak: [] };
-    const playerIdx = currentData.headers.indexOf("Player");
     
+    // --- Calculate Team FO% ---
+    const winIdx = currentData.headers.indexOf("Faceoffs Won");
+    const lossIdx = currentData.headers.indexOf("Faceoffs Lost");
+    
+    let teamWon = 0;
+    let teamLost = 0;
+    
+    currentData.rows.forEach(row => {
+        teamWon += Number(row[winIdx]) || 0;
+        teamLost += Number(row[lossIdx]) || 0;
+    });
+    
+    const teamTotal = teamWon + teamLost;
+    const teamFOPercent = teamTotal > 0 ? ((teamWon / teamTotal) * 100).toFixed(1) + "%" : "0.0%";
+
     container.innerHTML = `
         <div class="roster-header">
             <div style="display:flex; align-items:center; gap:15px;">
                 <img src="${getLogo(currentData.team)}" style="width:70px;">
                 <div>
                     <h1 style="margin:0;">${currentData.team}</h1>
-                    <div class="record-badge">${s.rec}</div>
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <span class="record-badge">${s.rec}</span>
+                        <span class="team-fo-badge">Team FO: ${teamFOPercent}</span>
+                    </div>
                     <div class="last-5">${s.streak.map(g => `<div class="pill ${g}">${g}</div>`).join('')}</div>
                 </div>
             </div>
@@ -108,10 +106,8 @@ function renderTable() {
                 <thead><tr>${currentData.headers.map((h, i) => `<th onclick="sortTable(${i})">${h}</th>`).join('')}</tr></thead>
                 <tbody>
                     ${currentData.rows.map(row => `
-                        <tr>${row.map((cell, idx) => {
-                            const cls = idx === 1 ? 'style="font-weight:bold; color:#58a6ff; background:rgba(88,166,255,0.05);"' : '';
-                            return `<td ${cls}>${cell}</td>`;
-                        }).join('')}</tr>`).join('')}
+                        <tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>
+                    `).join('')}
                 </tbody>
             </table>
         </div>`;
