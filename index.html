@@ -11,27 +11,63 @@
         }
         body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--txt); margin: 0; padding: 10px; }
         #app { max-width: 1100px; margin: 0 auto; }
-        .header-section { text-align: center; margin-bottom: 15px; height: 40px; }
-        .header-section h1 { margin: 0; font-style: italic; color: var(--acc); font-size: 2.2rem; }
+
+        /* HEADER FIX: Added z-index and background to prevent transparency */
+        .header-section { 
+            text-align: center; 
+            margin-bottom: 15px; 
+            min-height: 60px; 
+            position: sticky; 
+            top: 0; 
+            background: var(--bg); 
+            z-index: 100; 
+            padding-top: 10px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .header-section h1 { margin: 0; font-style: italic; color: var(--acc); font-size: 2.2rem; line-height: 1; }
+        
         .global-actions { margin: 15px 0; display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
-        .raw-btn, .back-btn { background: var(--card); color: var(--acc); border: 1px solid var(--brd); padding: 12px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 1rem; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
+        
+        /* Buttons */
+        .raw-btn, .back-btn { 
+            background: var(--card); color: var(--acc); border: 1px solid var(--brd); 
+            padding: 12px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 1rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2); 
+        }
+
+        /* BACK BUTTON SPECIFIC: Ensure it stays on top */
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+
         .filter-bar { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; }
         .filter-btn { background: transparent; color: #8b949e; border: 1px solid var(--brd); padding: 5px 12px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; font-weight: bold; }
         .filter-btn.active { background: var(--acc); color: white; border-color: var(--acc); }
+
         .div-label { font-size: 1rem; color: #8b949e; text-transform: uppercase; border-bottom: 2px solid var(--brd); margin-top: 20px; padding-bottom: 5px; }
+        
         .s-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
         .s-table td { padding: 0 10px; border-bottom: 1px solid #21262d; cursor: pointer; height: 40px; font-size: 1.1rem; }
+        
         .t-cell { display: flex; align-items: center; gap: 12px; font-weight: bold; }
         .t-logo { width: 28px; height: 28px; object-fit: contain; } 
         .st-cell { text-align: center; width: 60px; font-family: monospace; }
         .p-cell { font-weight: bold; color: var(--acc); text-align: center; width: 50px; }
+
         .matchup-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 15px; }
         .m-card { background: var(--card); border: 1px solid var(--brd); border-radius: 8px; padding: 15px; }
-        .table-wrapper { overflow-x: auto; border: 1px solid var(--brd); border-radius: 8px; height: 80vh; }
+
+        /* TABLE WRAPPER FIX: Adjusted z-index lower than header */
+        .table-wrapper { overflow-x: auto; border: 1px solid var(--brd); border-radius: 8px; height: 80vh; z-index: 10; position: relative; }
         table { width: 100%; border-collapse: collapse; text-align: right; white-space: nowrap; }
-        th, td { padding: 10px; }
-        th { background: var(--card); position: sticky; top: 0; z-index: 10; cursor: pointer; }
-        th:nth-child(1), td:nth-child(1) { text-align: left; position: sticky; left: 0; background: var(--bg); z-index: 5; }
+        th { background: var(--card); position: sticky; top: 0; z-index: 20; cursor: pointer; padding: 12px; }
+        td { padding: 10px; border-bottom: 1px solid var(--brd); }
+        th:nth-child(1), td:nth-child(1) { text-align: left; position: sticky; left: 0; background: var(--bg); z-index: 15; }
     </style>
 </head>
 <body>
