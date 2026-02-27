@@ -1,4 +1,4 @@
-console.log("App version 3.0 starting...");
+console.log("App version 3.2 starting...");
 
 // PASTE YOUR NEW DEPLOYMENT URL HERE
 var GOOGLE_URL = "https://script.google.com/macros/s/AKfycbyiUE8SnfMzVvqxlqeeoyaWXRyF2bDqEEdqBJ4FMIiMlhyCozsEGAowpwe6iiO-KJxN/exec";
@@ -70,23 +70,38 @@ async function loadTeamData(teamName) {
         var res = await fetch(GOOGLE_URL + "?action=team&name=" + teamName);
         var raw = await res.json();
         
-        // Extract the Team FO% from the first cell of the first row
+        // Grab Team FO% from the very first cell (Row 0, Col 0)
         var teamFO = "0.0%";
         if (raw.rows.length > 0) {
             teamFO = raw.rows[0][0]; 
         }
 
-        // We want to hide Column 0 (Team FO%) and Column 1 (Team) from the table
-        var displayHeaders = raw.headers.slice(2);
-        var displayRows = raw.rows.map(function(row) {
+        // Slice off Team FO% (Index 0) and Team Name (Index 1) from the table view
+        var rawHeaders = raw.headers.slice(2);
+        var rawRows = raw.rows.map(function(row) {
             return row.slice(2);
+        });
+
+        // Strip out any blank columns that might have snuck in
+        var cleanHeaders = [];
+        var validIndices = [];
+        
+        rawHeaders.forEach(function(h, idx) {
+            if (h && h.trim() !== "") {
+                cleanHeaders.push(h);
+                validIndices.push(idx);
+            }
+        });
+
+        var cleanRows = rawRows.map(function(row) {
+            return validIndices.map(function(idx) { return row[idx]; });
         });
 
         currentData = {
             team: teamName,
             teamFO: teamFO,
-            headers: displayHeaders,
-            rows: displayRows
+            headers: cleanHeaders,
+            rows: cleanRows
         };
         
         renderTable();
@@ -129,21 +144,21 @@ function renderTable() {
 function sortTable(idx) {
     sortDir *= -1;
     currentData.rows.sort(function(a, b) {
-        var valA = a[idx].toString();
-        var valB = b[idx].toString();
+        var valA = a[idx] ? a[idx].toString() : "0";
+        var valB = b[idx] ? b[idx].toString() : "0";
         
-        // Handle MM:SS time format
+        // Handle MM:SS format correctly
         if (valA.includes(":") && valB.includes(":")) {
             var timeA = valA.split(':');
             var timeB = valB.split(':');
-            var secsA = (parseInt(timeA[0]) * 60) + parseInt(timeA[1]);
-            var secsB = (parseInt(timeB[0]) * 60) + parseInt(timeB[1]);
+            var secsA = (parseInt(timeA[0]) * 60) + parseInt(timeA[1] || 0);
+            var secsB = (parseInt(timeB[0]) * 60) + parseInt(timeB[1] || 0);
             return (secsA - secsB) * sortDir;
         }
 
         // Handle Numbers and Percentages
-        var numA = parseFloat(valA.replace(/[%]/g, ''));
-        var numB = parseFloat(valB.replace(/[%]/g, ''));
+        var numA = parseFloat(valA.replace(/[%$,]/g, ''));
+        var numB = parseFloat(valB.replace(/[%$,]/g, ''));
         
         if (!isNaN(numA) && !isNaN(numB)) {
             return (numA - numB) * sortDir;
