@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NHL Analytics Dashboard</title>
+    <title>EMPTYNETTERS</title>
     <style>
         :root {
             --bg-color: #0d1117;
@@ -16,12 +16,12 @@
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; }
         #app { max-width: 1200px; margin: 0 auto; }
         .header-section { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 20px; }
-        .header-section h1 { margin: 0; }
+        .header-section h1 { margin: 0; font-style: italic; letter-spacing: 1px; }
         .sync-time { color: #8b949e; font-size: 0.9rem; }
         
-        .global-actions { margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 10px; }
-        .raw-btn { background-color: var(--card-bg); color: var(--accent-color); border: 1px solid var(--border-color); padding: 10px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.95rem; transition: background-color 0.2s; }
-        .raw-btn:hover { background-color: var(--hover-bg); border-color: var(--accent-color); }
+        .global-actions { margin-bottom: 25px; display: flex; flex-wrap: wrap; gap: 15px; justify-content: center;}
+        .raw-btn { background-color: var(--card-bg); color: var(--accent-color); border: 1px solid var(--border-color); padding: 12px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 1rem; transition: all 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .raw-btn:hover { background-color: var(--hover-bg); border-color: var(--accent-color); transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.2); }
         
         .team-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; }
         .card { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 6px; padding: 15px; text-align: center; cursor: pointer; transition: background-color 0.2s; }

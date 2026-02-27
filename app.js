@@ -1,4 +1,4 @@
-console.log("App version 4.0 starting...");
+console.log("App version 4.1 starting...");
 
 // PASTE YOUR GOOGLE WEB APP URL HERE
 var GOOGLE_URL = "https://script.google.com/macros/s/AKfycbyiUE8SnfMzVvqxlqeeoyaWXRyF2bDqEEdqBJ4FMIiMlhyCozsEGAowpwe6iiO-KJxN/exec";
@@ -9,6 +9,13 @@ var standings = {};
 var currentData = null;
 var sortDir = 1;
 var lastSyncTime = "Updating...";
+
+// Map the raw sheet names to the nice display names for the table headers
+var displayNames = {
+    "RawData": "Player ENG Stats",
+    "VS Empty": "Team Stats vs Empty Net",
+    "Net Empty": "Team Stats with Net Empty"
+};
 
 async function fetchStandings() {
     try {
@@ -38,14 +45,14 @@ async function loadDashboard() {
         lastSyncTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
         var html = '<div class="header-section">';
-        html += '<h1>NHL Analytics</h1>';
+        html += '<h1>EMPTYNETTERS</h1>';
         html += '<span class="sync-time">🟢 Live • ' + lastSyncTime + '</span></div>';
         
         // --- GLOBAL ACTIONS BAR ---
         html += '<div class="global-actions">';
-        html += '<button class="raw-btn" onclick="loadRawData(\'VS Empty\')">📊 Team VS Empty Data</button>';
-        html += '<button class="raw-btn" onclick="loadRawData(\'Net Empty\')">🥅 Team Net Empty Data</button>';
-        html += '<button class="raw-btn" onclick="loadRawData(\'RawData\')">📋 Full Player Database</button>';
+        html += '<button class="raw-btn" onclick="loadRawData(\'RawData\')">Player ENG Stats</button>';
+        html += '<button class="raw-btn" onclick="loadRawData(\'VS Empty\')">Team Stats vs Empty Net</button>';
+        html += '<button class="raw-btn" onclick="loadRawData(\'Net Empty\')">Team Stats with Net Empty</button>';
         html += '</div>';
 
         html += '<div class="team-grid">';
@@ -99,7 +106,8 @@ async function loadTeamData(teamName) {
 
 // Loads the global data sheets (VS Empty, Net Empty, RawData)
 async function loadRawData(sheetName) {
-    container.innerHTML = "<h2>Loading " + sheetName + " league data...</h2>";
+    var displayName = displayNames[sheetName] || sheetName;
+    container.innerHTML = "<h2>Loading " + displayName + "...</h2>";
     window.scrollTo(0,0);
     
     try {
@@ -120,7 +128,7 @@ async function loadRawData(sheetName) {
             return validIndices.map(function(idx) { return row[idx]; });
         });
 
-        currentData = { type: 'raw', team: sheetName, headers: cleanHeaders, rows: cleanRows };
+        currentData = { type: 'raw', team: sheetName, displayName: displayName, headers: cleanHeaders, rows: cleanRows };
         renderTable();
     } catch (e) { container.innerHTML = "<h1>Error loading data.</h1><button class='back-btn' onclick='loadDashboard()'>Go Back</button>"; }
 }
@@ -138,7 +146,7 @@ function renderTable() {
         html += '<span class="team-fo-badge">Team FO: ' + currentData.teamFO + '</span>';
         html += '</div></div>';
     } else {
-        html += '<div><h1 style="margin:0;">Global View: ' + currentData.team + '</h1></div>';
+        html += '<div><h1 style="margin:0;">' + currentData.displayName + '</h1></div>';
     }
     
     html += '</div><button class="back-btn" onclick="loadDashboard()">← Dashboard</button></div>';
