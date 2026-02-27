@@ -1,17 +1,16 @@
-console.log("App version 8.1.7 - Restored UI + Utah Fix");
+console.log("App version 8.1.8 - Compact Standing Rows + All Buttons");
 
 var GOOGLE_URL = "https://script.google.com/macros/s/AKfycbyiUE8SnfMzVvqxlqeeoyaWXRyF2bDqEEdqBJ4FMIiMlhyCozsEGAowpwe6iiO-KJxN/exec";
 var STANDINGS_API = "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://api-web.nhle.com/v1/standings/now");
-var SCHEDULE_API = "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://api-web.nhle.com/v1/schedule/now");
 
 var container = document.getElementById('app');
 var standingsData = {}; 
 var currentData = null;
 var sortDir = 1;
 
-// Normalization Map for Utah and others
+// Normalization Map for Utah and other variants
 const TEAM_MAP = { 
-    "UTAH": "UTA", "UTM": "UTA", 
+    "UTAH": "UTA", "UTM": "UTA", "UTA": "UTA",
     "LA": "LAK", "SJ": "SJS", 
     "TB": "TBL", "NJ": "NJD"
 };
@@ -36,7 +35,7 @@ async function fetchStandings() {
 }
 
 async function loadDashboard() {
-    container.innerHTML = "<h2>Syncing League Data...</h2>";
+    container.innerHTML = "<h2>Syncing Data...</h2>";
     await fetchStandings();
     
     try {
@@ -44,23 +43,28 @@ async function loadDashboard() {
         var sheetTeams = await res.json();
         var now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-        // Restored 8.1 Header and Navigation
         var html = '<div class="header-section"><h1>EMPTYNETTERS</h1><span class="sync-time">🟢 Live • ' + now + '</span></div>';
         
+        // ALL 4 BUTTONS RESTORED
         html += '<div class="global-actions">';
         html += '<button class="raw-btn" onclick="loadMatchups()">Daily Matchups</button>';
-        html += '<button class="raw-btn" onclick="loadRawData(\'RawData\')">Player ENG Stats</button>';
-        html += '<button class="raw-btn" onclick="loadRawData(\'VS Empty\')">Team Stats vs Empty Net</button>';
+        html += '<button class="raw-btn" onclick="loadRawData(\'RawData\')">Player Stats</button>';
+        html += '<button class="raw-btn" onclick="loadRawData(\'VS Empty\')">Vs Empty Net</button>';
+        html += '<button class="raw-btn" onclick="loadRawData(\'Net Empty\')">With Net Empty</button>';
         html += '</div>';
 
-        // Division Grouping
         var divisions = { "Atlantic": [], "Metropolitan": [], "Central": [], "Pacific": [] };
         
         sheetTeams.forEach(t => {
             let code = t.team.trim().toUpperCase();
             code = TEAM_MAP[code] || code;
-            const stats = standingsData[code] || { rec: "-", pts: "-", gp: "-", div: "Other", rank: "-" };
-            const div = stats.div || "Other";
+            
+            let stats = standingsData[code] || { rec: "-", pts: "-", gp: "-", div: "Other", rank: "-" };
+            
+            // Force Utah into Central if API missed it
+            let div = stats.div || "Other";
+            if (code === "UTA") div = "Central";
+
             if (divisions[div]) divisions[div].push({ code: code, stats: stats });
         });
 
@@ -68,24 +72,23 @@ async function loadDashboard() {
             if (divisions[divName].length === 0) return;
             divisions[divName].sort((a,b) => a.stats.rank - b.stats.rank);
 
-            html += '<div class="division-block">';
-            html += '<div class="division-title">' + divName + ' Division</div>';
-            html += '<table class="standings-table"><thead><tr><th style="width:25px;">#</th><th>Team</th><th class="stat-cell">GP</th><th class="stat-cell">Record</th><th class="pts-cell">PTS</th></tr></thead><tbody>';
+            html += '<div class="div-header">' + divName + '</div>';
+            html += '<table class="standings-table"><thead><tr><th style="width:20px;">#</th><th>Team</th><th class="stat-cell">GP</th><th class="stat-cell">Record</th><th class="pts-cell">PTS</th></tr></thead><tbody>';
             
             divisions[divName].forEach(team => {
                 html += '<tr onclick="loadTeamData(\'' + team.code + '\')">';
-                html += '<td style="color:#8b949e; text-align:center;">' + team.stats.rank + '</td>';
+                html += '<td style="color:#8b949e; text-align:center; font-size:0.7rem;">' + team.stats.rank + '</td>';
                 html += '<td><div class="team-cell"><img src="https://assets.nhle.com/logos/nhl/svg/' + team.code + '_light.svg" class="tiny-logo">' + team.code + '</div></td>';
                 html += '<td class="stat-cell">' + team.stats.gp + '</td>';
                 html += '<td class="stat-cell">' + team.stats.rec + '</td>';
                 html += '<td class="pts-cell">' + team.stats.pts + '</td>';
                 html += '</tr>';
             });
-            html += '</tbody></table></div>';
+            html += '</tbody></table>';
         });
 
         container.innerHTML = html;
-    } catch (e) { container.innerHTML = "<h1>API Sync Error</h1>"; }
+    } catch (e) { container.innerHTML = "<h1>Data Sync Error</h1>"; }
 }
 
 async function loadTeamData(team) {
@@ -128,7 +131,7 @@ function sortTable(idx) {
 }
 
 async function loadMatchups() {
-    container.innerHTML = "<h2>Matchups Loading...</h2><button class='back-btn' onclick='loadDashboard()'>Back</button>";
+    container.innerHTML = "<h2>Analysis Pending...</h2><button class='back-btn' onclick='loadDashboard()'>Back</button>";
 }
 
 loadDashboard();
