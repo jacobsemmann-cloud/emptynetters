@@ -1,4 +1,4 @@
-const API_URL = "YOUR_GOOGLE_SCRIPT_WEB_APP_URL"; // Make sure your URL is here!
+const API_URL = "https://script.google.com/macros/s/AKfycbxYqfqphuMSHm0eJUae7jlNE89UUa70-SSl1bmhBlHoxv-SSZ0q0l7-eVzUHTlh6isC/exec"; // Make sure your URL is here!
 
 const container = document.getElementById('dashboard');
 
