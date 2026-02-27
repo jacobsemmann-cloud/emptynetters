@@ -1,9 +1,12 @@
-console.log("App version 7.1 starting...");
+console.log("App version 7.2 starting...");
 
 // PASTE YOUR GOOGLE WEB APP URL HERE
 var GOOGLE_URL = "https://script.google.com/macros/s/AKfycbyiUE8SnfMzVvqxlqeeoyaWXRyF2bDqEEdqBJ4FMIiMlhyCozsEGAowpwe6iiO-KJxN/exec";
-var STANDINGS_API = "https://api-web.nhle.com/v1/standings/now";
-var SCHEDULE_API = "https://api-web.nhle.com/v1/schedule/now";
+
+// Routed through a proxy to bypass the NHL's CORS block
+var STANDINGS_API = "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://api-web.nhle.com/v1/standings/now");
+var SCHEDULE_API = "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://api-web.nhle.com/v1/schedule/now");
+
 var container = document.getElementById('app');
 
 var standings = {};
@@ -46,10 +49,10 @@ async function loadDashboard() {
 
         var html = '<div class="header-section">';
         html += '<h1>EMPTYNETTERS</h1>';
-        html += '<span class="sync-time"> Live - ' + lastSyncTime + '</span></div>';
+        html += '<span class="sync-time">🟢 Live • ' + lastSyncTime + '</span></div>';
         
         html += '<div class="global-actions">';
-        html += '<button class="raw-btn" onclick="loadMatchups()">Daily Matchups</button>';
+        html += '<button class="raw-btn" onclick="loadMatchups()">🗓️ Daily Matchups</button>';
         html += '<button class="raw-btn" onclick="loadRawData(\'RawData\')">Player ENG Stats</button>';
         html += '<button class="raw-btn" onclick="loadRawData(\'VS Empty\')">Team Stats vs Empty Net</button>';
         html += '<button class="raw-btn" onclick="loadRawData(\'Net Empty\')">Team Stats with Net Empty</button>';
