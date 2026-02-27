@@ -2,164 +2,154 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EMPTYNETTERS | Closer Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="EMPTYNETTERS">
+    
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="apple-touch-icon" href="logo.png">
+    
+    <meta name="theme-color" content="#0d1117">
+    
+    <title>EMPTYNETTERS</title>
+    
     <style>
         :root {
             --bg-color: #0d1117;
+            --text-color: #c9d1d9;
             --card-bg: #161b22;
             --border-color: #30363d;
-            --text-color: #c9d1d9;
             --accent-color: #58a6ff;
-            --highlight: #238636;
+            --hover-bg: #21262d;
         }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            margin: 0;
-            padding: 20px;
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; 
+            background-color: var(--bg-color); 
+            color: var(--text-color); 
+            margin: 0; 
+            padding: 20px; 
         }
-
-        #app {
-            max-width: 1200px;
-            margin: 0 auto;
+        #app { max-width: 1200px; margin: 0 auto; }
+        .header-section { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: baseline; 
+            border-bottom: 1px solid var(--border-color); 
+            padding-bottom: 10px; 
+            margin-bottom: 20px; 
         }
-
-        /* Header Styles */
-        .header-section {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-
-        h1 {
-            color: var(--accent-color);
-            font-size: 2.5rem;
-            margin: 0;
-            letter-spacing: 2px;
-        }
-
-        .sync-time {
-            font-size: 0.85rem;
-            color: #8b949e;
-        }
-
-        /* Navigation Buttons */
-        .global-actions {
-            display: flex;
+        .header-section h1 { margin: 0; font-style: italic; letter-spacing: 1px; }
+        .sync-time { color: #8b949e; font-size: 0.9rem; }
+        
+        .global-actions { 
+            margin-bottom: 25px; 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 15px; 
             justify-content: center;
-            gap: 10px;
-            margin-bottom: 30px;
-            flex-wrap: wrap;
         }
-
-        .raw-btn, .back-btn {
-            background-color: var(--card-bg);
-            border: 1px solid var(--border-color);
-            color: var(--text-color);
-            padding: 10px 20px;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: 0.2s;
-            font-weight: 600;
+        .raw-btn { 
+            background-color: var(--card-bg); 
+            color: var(--accent-color); 
+            border: 1px solid var(--border-color); 
+            padding: 12px 20px; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            font-size: 1rem; 
+            transition: all 0.2s; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
         }
-
-        .raw-btn:hover, .back-btn:hover {
-            border-color: var(--accent-color);
-            background-color: #1f242c;
+        .raw-btn:hover { 
+            background-color: var(--hover-bg); 
+            border-color: var(--accent-color); 
+            transform: translateY(-2px); 
+            box-shadow: 0 6px 12px rgba(0,0,0,0.2); 
         }
-
-        /* Grid Layout */
-        .team-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 15px;
+        
+        .team-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); 
+            gap: 15px; 
         }
-
-        .card {
-            background-color: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 20px;
-            text-align: center;
-            cursor: pointer;
-            transition: transform 0.2s, border-color 0.2s;
+        .card { 
+            background-color: var(--card-bg); 
+            border: 1px solid var(--border-color); 
+            border-radius: 6px; 
+            padding: 15px; 
+            text-align: center; 
+            cursor: pointer; 
+            transition: background-color 0.2s; 
         }
-
-        .card:hover {
-            transform: translateY(-5px);
-            border-color: var(--accent-color);
+        .card:hover { background-color: var(--hover-bg); }
+        .team-logo { width: 60px; height: 60px; margin-bottom: 10px; }
+        .record-badge, .team-fo-badge { 
+            display: inline-block; 
+            padding: 4px 8px; 
+            border-radius: 12px; 
+            font-size: 0.8rem; 
+            font-weight: bold; 
+            margin-top: 5px; 
         }
-
-        .team-logo {
-            width: 60px;
-            height: 60px;
-            margin-bottom: 10px;
+        .record-badge { background-color: var(--hover-bg); border: 1px solid var(--border-color); }
+        .team-fo-badge { 
+            background-color: rgba(88, 166, 255, 0.1); 
+            color: var(--accent-color); 
+            border: 1px solid var(--accent-color); 
+            margin-left: 8px; 
         }
-
-        .record-badge {
-            background-color: #21262d;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 0.8rem;
-            margin-top: 10px;
-            display: inline-block;
+        
+        .roster-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 20px; 
         }
-
-        /* Prediction Card Specifics */
-        .roster-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
+        .back-btn { 
+            background-color: var(--card-bg); 
+            color: var(--text-color); 
+            border: 1px solid var(--border-color); 
+            padding: 8px 16px; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-weight: bold; 
         }
-
-        /* Table Styles for Raw Data */
-        .table-wrapper {
-            overflow-x: auto;
-            background: var(--card-bg);
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
+        .table-wrapper { 
+            overflow-x: auto; 
+            border: 1px solid var(--border-color); 
+            border-radius: 6px; 
+            height: 75vh;
         }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            text-align: left;
+        table { width: 100%; border-collapse: collapse; text-align: right; white-space: nowrap; }
+        th, td { padding: 10px; border-bottom: 1px solid var(--border-color); }
+        
+        th { 
+            background-color: var(--card-bg); 
+            cursor: pointer; 
+            user-select: none; 
+            position: sticky; 
+            top: 0; 
+            z-index: 10; 
+            border-bottom: 2px solid var(--border-color); 
         }
-
-        th, td {
-            padding: 12px 15px;
-            border-bottom: 1px solid var(--border-color);
+        
+        th:nth-child(1), td:nth-child(1) { 
+            text-align: left; 
+            position: sticky; 
+            left: 0; 
+            background-color: var(--bg-color); 
+            z-index: 5; 
+            border-right: 1px solid var(--border-color); 
         }
-
-        th {
-            background-color: #1f242c;
-            cursor: pointer;
-            white-space: nowrap;
-        }
-
-        th:hover { color: var(--accent-color); }
-
-        tr:hover { background-color: #1c2128; }
-
-        .team-fo-badge {
-            background: var(--highlight);
-            color: white;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 0.8rem;
-            margin-left: 10px;
-        }
+        th:nth-child(1) { background-color: var(--card-bg); z-index: 15; }
+        th:nth-child(2), td:nth-child(2) { text-align: left; }
     </style>
 </head>
 <body>
-
-    <div id="app">
-        <h2 style="text-align: center;">Loading Dashboard...</h2>
-    </div>
-
+    <div id="app"></div>
     <script src="app.js"></script>
 </body>
 </html>

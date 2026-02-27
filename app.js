@@ -1,4 +1,4 @@
-console.log("App version 9.0 - Saturday Slate Engine");
+console.log("App version 8.1 - Unified Engine");
 
 var GOOGLE_URL = "https://script.google.com/macros/s/AKfycbyiUE8SnfMzVvqxlqeeoyaWXRyF2bDqEEdqBJ4FMIiMlhyCozsEGAowpwe6iiO-KJxN/exec";
 
@@ -18,8 +18,6 @@ var displayNames = {
     "VS Empty": "Team Stats vs Empty Net",
     "Net Empty": "Team Stats with Net Empty"
 };
-
-// --- DATA FETCHING ---
 
 async function fetchStandings() {
     try {
@@ -74,10 +72,8 @@ async function loadDashboard() {
     } catch (e) { container.innerHTML = "<h1>API Error</h1><p>Check Google URL or deployment.</p>"; }
 }
 
-// --- NEW PREDICTION LOGIC ---
-
 async function loadMatchups() {
-    container.innerHTML = "<h2>Generating Saturday Slate...</h2>";
+    container.innerHTML = "<h2>Generating Predictions...</h2>";
     window.scrollTo(0,0);
     
     try {
@@ -91,123 +87,89 @@ async function loadMatchups() {
         const vsEmpty = await vsEmptyRes.json();
         const rawPlayers = await rawDataRes.json();
 
-        // 1. Map Opponent Vulnerability (ENG Allowed)
-        var engAllowed = {};
+        var teamVuln = {};
         var vsHeaders = vsEmpty.headers;
         var tIdx = vsHeaders.indexOf("Team");
-        var gaIdx = vsHeaders.indexOf("GA"); // Total goals allowed vs empty net
+        var gaIdx = vsHeaders.indexOf("GA");
+        var toiIdx = vsHeaders.indexOf("TOI");
 
         vsEmpty.rows.forEach(row => {
             var team = row[tIdx];
             var ga = parseFloat(row[gaIdx]) || 0;
-            engAllowed[team] = ga; 
+            var toiStr = row[toiIdx] || "0:00";
+            var toiParts = toiStr.split(":");
+            var toiMins = (parseInt(toiParts[0]) || 0) + (parseInt(toiParts[1]) / 60 || 0);
+            teamVuln[team] = toiMins > 0 ? (ga / toiMins) : 0;
         });
 
-        // 2. Parse Players & Find Team Faceoff Anchors
-        var teamPlayers = {};
-        var teamAnchors = {}; // Holds the Name of the player with most FO_eng
-        
+        var playerENG = {};
         var pHeaders = rawPlayers.headers;
         var pNameIdx = pHeaders.indexOf("Player");
         var pTeamIdx = pHeaders.indexOf("Team");
-        var pGIdx = pHeaders.indexOf("G"); 
-        var pFoIdx = pHeaders.indexOf("FO_eng"); // Specifically looking at Net Empty FOs
         var pToiIdx = pHeaders.indexOf("TOI");
-        var pPkIdx = pHeaders.indexOf("PK_Status"); // Boolean or Flag in your sheet
+        var pGIdx = pHeaders.indexOf("G"); 
+        var pFoIdx = pHeaders.indexOf("Team FO%");
 
         rawPlayers.rows.forEach(row => {
             var team = row[pTeamIdx];
-            if (!teamPlayers[team]) teamPlayers[team] = [];
+            if (!playerENG[team]) playerENG[team] = [];
             
-            var pData = {
-                name: row[pNameIdx],
-                g: parseFloat(row[pGIdx]) || 0,
-                fo: parseFloat(row[pFoIdx]) || 0,
-                toi: parseFloat(row[pToiIdx]) || 0,
-                isPK: row[pPkIdx] === "TRUE" || row[pPkIdx] === "1"
-            };
+            var g = parseFloat(row[pGIdx]) || 0;
+            var toi = parseFloat(row[pToiIdx]) || 0;
+            var fo = parseFloat(row[pFoIdx]) || 0;
+            var score = (g * 5) + (toi * 1.5) + (fo / 10);
             
-            teamPlayers[team].push(pData);
-
-            // Track Anchor
-            if (!teamAnchors[team] || pData.fo > teamAnchors[team].fo) {
-                teamAnchors[team] = { name: pData.name, fo: pData.fo };
-            }
+            playerENG[team].push({ name: row[pNameIdx], score: score });
         });
 
-        var html = '<div class="roster-header"><h1>Closer Unit Predictions</h1><button class="back-btn" onclick="loadDashboard()">Back</button></div>';
+        var html = '<div class="roster-header">';
+        html += '<h1>Upcoming Matchups</h1>';
+        html += '<button class="back-btn" onclick="loadDashboard()">Back</button></div>';
 
         schedData.gameWeek.forEach(day => {
             if (day.games.length > 0) {
                 var dParts = day.date.split("-");
                 var niceDate = new Date(dParts[0], dParts[1] - 1, dParts[2]).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
                 html += '<h3 style="margin-top: 30px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">' + niceDate + '</h3>';
-                html += '<div class="team-grid" style="grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));">';
+                html += '<div class="team-grid" style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));">';
 
                 day.games.forEach(game => {
                     var away = game.awayTeam.abbrev;
                     var home = game.homeTeam.abbrev;
                     var time = new Date(game.startTimeUTC).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-                    const processTeam = (team, opp) => {
-                        var players = teamPlayers[team] || [];
-                        var anchorName = teamAnchors[team] ? teamAnchors[team].name : "";
-                        var oppAllowed = engAllowed[opp] || 0;
+                    var awayCloser = (playerENG[away] || []).sort((a,b) => b.score - a.score)[0];
+                    var homeCloser = (playerENG[home] || []).sort((a,b) => b.score - a.score)[0];
+                    var awayTrap = teamVuln[away] || 0;
+                    var homeTrap = teamVuln[home] || 0;
 
-                        return players.map(p => {
-                            // SYNERGY: Same line as anchor (Placeholder: in this script we assume top 3 players share ice)
-                            // Ideally, cross-reference with your 'Lines' data if available
-                            var synergyBonus = (p.name === anchorName) ? 5 : 0; 
-                            
-                            // FORMULA: (G*15) + (FO*5) + (Syn*5) + (OppAllowed*2)
-                            var rawScore = (p.g * 15) + (p.fo * 5) + synergyBonus + (oppAllowed * 2);
-                            return { ...p, finalScore: rawScore };
-                        }).sort((a,b) => b.finalScore - a.finalScore);
-                    };
-
-                    var awayClosers = processTeam(away, home);
-                    var homeClosers = processTeam(home, away);
-
-                    html += '<div class="card" style="padding: 15px; text-align: left; border-left: 4px solid var(--accent-color);">';
-                    html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom: 1px solid #333; padding-bottom: 8px;">';
-                    html += '<span><b>'+away+'</b> vs <b>'+home+'</b></span>';
-                    html += '<span style="color:var(--accent-color); font-size:0.8rem; font-weight:bold;">'+time+'</span>';
+                    html += '<div class="card" style="padding: 15px; text-align: left;">';
+                    html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">';
+                    html += '<span><img src="https://assets.nhle.com/logos/nhl/svg/'+away+'_light.svg" style="width:30px;"> <b>'+away+'</b></span>';
+                    html += '<span style="color:var(--accent-color); font-size:0.8rem;">'+time+'</span>';
+                    html += '<span><b>'+home+'</b> <img src="https://assets.nhle.com/logos/nhl/svg/'+home+'_light.svg" style="width:30px;"></span>';
                     html += '</div>';
 
-                    const renderUnit = (team, closers) => {
-                        if (closers.length === 0) return '<div>No Data</div>';
-                        var c1 = closers[0];
-                        var c2 = closers[1] || { name: "N/A" };
-                        // Sleeper: High TOI PKer not in top 2
-                        var sleeper = closers.find(p => p.isPK && p.name !== c1.name && p.name !== c2.name) || closers[2] || { name: "N/A" };
-                        
-                        var res = '<div style="margin-bottom:10px;">';
-                        res += '<div style="font-size:0.75rem; color:#888; text-transform:uppercase;">'+team+' CLOSERS:</div>';
-                        res += '<div style="font-size:1.1rem;">🎯 <b>'+c1.name+'</b> <small>('+(c1.finalScore/15).toFixed(1)+')</small></div>';
-                        res += '<div style="font-size:1rem; color:#ccc;">🥈 '+c2.name+'</div>';
-                        res += '<div style="margin-top:5px; padding:4px 8px; background:rgba(56,189,248,0.1); border-radius:4px; font-size:0.85rem; color:var(--accent-color);">';
-                        res += '🛡️ SLEEPER: '+sleeper.name+'</div>';
-                        res += '</div>';
-                        return res;
-                    };
-
-                    html += renderUnit(away, awayClosers);
-                    html += '<div style="height:1px; background:#444; margin:10px 0;"></div>';
-                    html += renderUnit(home, homeClosers);
+                    html += '<div style="background: rgba(88, 166, 255, 0.05); border: 1px dashed var(--accent-color); border-radius: 4px; padding: 10px; font-size: 0.85rem;">';
+                    html += '<div style="color: var(--accent-color); font-weight: bold; margin-bottom:5px;">🎯 PROJECTED CLOSER:</div>';
                     
-                    html += '</div>';
+                    if (homeTrap > awayTrap && awayCloser) {
+                        html += '<b>' + awayCloser.name + '</b> (' + away + ')';
+                    } else if (homeCloser) {
+                        html += '<b>' + homeCloser.name + '</b> (' + home + ')';
+                    } else {
+                        html += 'Calculating...';
+                    }
+                    html += '</div></div>';
                 });
                 html += '</div>';
             }
         });
         container.innerHTML = html;
     } catch (e) {
-        console.error(e);
         container.innerHTML = "<h1>Error loading predictions.</h1><button class='back-btn' onclick='loadDashboard()'>Go Back</button>";
     }
 }
-
-// --- TABLE & SORTING (KEEPING YOUR EXISTING CODE) ---
 
 async function loadTeamData(teamName) {
     container.innerHTML = "<h2>Loading " + teamName + "...</h2>";
