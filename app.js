@@ -8,6 +8,7 @@ var NHL_SCHEDULE = "https://api-web.nhle.com/v1/schedule/now";
 var container = document.getElementById('app');
 var cache = { standings: {}, schedule: null, dashboardTeams: null, sheets: {}, teams: {} };
 var currentFilter = 'all', sortDir = 1;
+
 const MAP = { "UTAH": "UTA", "UTM": "UTA", "LA": "LAK", "SJ": "SJS", "TB": "TBL", "NJ": "NJD" };
 
 async function smartFetch(url) {
@@ -22,13 +23,12 @@ async function smartFetch(url) {
 
 /**
  * SPORTSBOOK ODDS API
- * Pulls live Moneyline odds from ESPN's hidden public scoreboard API.
- * We use this because directly scraping FanDuel triggers bot-protection blocks.
+ * Pulls live Moneyline odds directly from ESPN's hidden public scoreboard API.
+ * Natively supports browser fetches, bypassing strict sportsbook bot-protection.
  */
 async function fetchBettingOdds() {
     let oddsData = {};
     try {
-        // ESPN's API natively supports CORS, so we can fetch it directly without a proxy
         let res = await fetch("https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard");
         let data = await res.json();
         
@@ -37,37 +37,27 @@ async function fetchBettingOdds() {
                 let comp = event.competitions[0];
                 if (comp && comp.odds && comp.odds.length > 0) {
                     let odds = comp.odds[0];
+                    
                     let awayAbbrev = comp.competitors.find(c => c.homeAway === 'away').team.abbreviation.toUpperCase();
                     let homeAbbrev = comp.competitors.find(c => c.homeAway === 'home').team.abbreviation.toUpperCase();
                     
-                    let awayML = (odds.awayTeamOdds && odds.awayTeamOdds.moneyLine) ? odds.awayTeamOdds.moneyLine : "N/A";
-                    let homeML = (odds.homeTeamOdds && odds.homeTeamOdds.moneyLine) ? odds.homeTeamOdds.moneyLine : "N/A";
+                    // Standardize ESPN's abbreviations to match NHL API
+                    const espnMap = { "WAS": "WSH", "SJ": "SJS", "TB": "TBL", "NJ": "NJD", "LA": "LAK", "UTAH": "UTA" };
+                    let cleanAway = espnMap[awayAbbrev] || awayAbbrev;
+                    let cleanHome = espnMap[homeAbbrev] || homeAbbrev;
+                    
+                    let aML = (odds.awayTeamOdds && odds.awayTeamOdds.moneyLine) ? odds.awayTeamOdds.moneyLine : "N/A";
+                    let hML = (odds.homeTeamOdds && odds.homeTeamOdds.moneyLine) ? odds.homeTeamOdds.moneyLine : "N/A";
 
-                    // Format nicely (add + to positive odds, handle Pick'em)
-                    if (awayML !== "N/A") {
-                        if (awayML > 0) awayML = "+" + awayML;
-                        else if (awayML === 0) awayML = "PK";
-                    }
-                    if (homeML !== "N/A") {
-                        if (homeML > 0) homeML = "+" + homeML;
-                        else if (homeML === 0) homeML = "PK";
-                    }
+                    if (aML !== "N/A" && aML > 0) aML = "+" + aML;
+                    if (hML !== "N/A" && hML > 0) hML = "+" + hML;
 
-                    oddsData[awayAbbrev] = awayML;
-                    oddsData[homeAbbrev] = homeML;
+                    oddsData[cleanAway] = aML;
+                    oddsData[cleanHome] = hML;
                 }
             });
         }
-        
-        // ESPN uses slightly different team acronyms than the NHL API
-        const espnMap = { "WAS": "WSH", "SJ": "SJS", "TB": "TBL", "NJ": "NJD", "LA": "LAK", "UTAH": "UTA" };
-        let normalizedOdds = {};
-        for (let key in oddsData) {
-            let cleanKey = espnMap[key] || key;
-            normalizedOdds[cleanKey] = oddsData[key];
-        }
-        
-        return normalizedOdds;
+        return oddsData;
     } catch (e) {
         console.warn("Failed to fetch odds from ESPN API.", e);
         return {}; 
