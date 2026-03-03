@@ -1,4 +1,4 @@
-console.log("App v8.3.1 - Enhanced MoneyPuck DOM Scraper + Caching");
+console.log("App v8.3.2 - Bulletproof MoneyPuck Cell Scraper");
 
 var GOOGLE_URL = "https://script.google.com/macros/s/AKfycbyiUE8SnfMzVvqxlqeeoyaWXRyF2bDqEEdqBJ4FMIiMlhyCozsEGAowpwe6iiO-KJxN/exec";
 var PROXIES = ["https://api.allorigins.win/raw?url=", "https://corsproxy.io/?"];
@@ -8,6 +8,7 @@ var NHL_SCHEDULE = "https://api-web.nhle.com/v1/schedule/now";
 var container = document.getElementById('app');
 var cache = { standings: {}, schedule: null, dashboardTeams: null, sheets: {}, teams: {} };
 var currentFilter = 'all', sortDir = 1;
+
 const MAP = { "UTAH": "UTA", "UTM": "UTA", "LA": "LAK", "SJ": "SJS", "TB": "TBL", "NJ": "NJD" };
 
 async function smartFetch(url) {
@@ -21,8 +22,9 @@ async function smartFetch(url) {
 }
 
 /**
- * ROBUST MONEYPUCK SCRAPER
- * Uses DOMParser to navigate the HTML tree and find percentages physically close to team logos.
+ * BULLETPROOF MONEYPUCK SCRAPER
+ * Finds the team logo, isolates the table cell it lives inside, and grabs the percentage.
+ * This works whether the game is live, delayed, or upcoming.
  */
 async function fetchMoneyPuckOdds() {
     let mpOdds = {};
@@ -30,37 +32,38 @@ async function fetchMoneyPuckOdds() {
         let res = await fetch("https://api.allorigins.win/get?url=" + encodeURIComponent("https://moneypuck.com/index.html"));
         let data = await res.json();
         
-        // Build a virtual DOM to search through
         let parser = new DOMParser();
         let doc = parser.parseFromString(data.contents, "text/html");
         
+        // Find all images on the MoneyPuck homepage
         let images = doc.querySelectorAll('img');
         
         images.forEach(img => {
             let src = img.getAttribute('src') || "";
+            // Check if the image is a team logo
             let match = src.match(/(?:logo_|logos\/)([A-Za-z\.]+)\.(?:png|svg|webp)/i);
             
             if (match) {
                 let teamCode = match[1].toUpperCase();
                 
-                // Search the parent containers up to 3 levels deep for a percentage
-                let currentEl = img.parentElement;
-                for (let i = 0; i < 3; i++) {
-                    if (!currentEl) break;
-                    let text = currentEl.innerText || "";
+                // MoneyPuck uses a 3-column table (Away | Time | Home).
+                // By getting the closest 'td', we strictly isolate this team's data
+                // so we don't accidentally grab the opponent's percentage.
+                let cell = img.closest('td') || img.parentElement.parentElement;
+                
+                if (cell) {
+                    let text = cell.textContent || "";
+                    // Look for any number formatted as a percentage (e.g. 55% or 49.1%)
                     let pctMatch = text.match(/(\d{1,3}(?:\.\d{1,2})?)\s*%/);
                     
-                    if (pctMatch) {
-                        if (!mpOdds[teamCode]) {
-                            mpOdds[teamCode] = pctMatch[1] + "%";
-                        }
-                        break;
+                    if (pctMatch && !mpOdds[teamCode]) {
+                        mpOdds[teamCode] = pctMatch[1] + "%";
                     }
-                    currentEl = currentEl.parentElement;
                 }
             }
         });
         
+        // Map MoneyPuck's weird punctuation to standard NHL abbreviations
         const mpMap = { "L.A": "LAK", "S.J": "SJS", "T.B": "TBL", "N.J": "NJD", "UTA": "UTA", "V.G": "VGK" };
         let normalizedOdds = {};
         for (let key in mpOdds) {
@@ -70,7 +73,7 @@ async function fetchMoneyPuckOdds() {
         
         return normalizedOdds;
     } catch (e) {
-        console.warn("MoneyPuck scrape unavailable.");
+        console.warn("MoneyPuck scrape unavailable.", e);
         return {}; 
     }
 }
