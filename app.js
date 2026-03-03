@@ -1,4 +1,4 @@
-console.log("App v8.3.2 - Bulletproof MoneyPuck Cell Scraper");
+console.log("App v8.4.0 - Live ESPN Sportsbook Odds Engine");
 
 var GOOGLE_URL = "https://script.google.com/macros/s/AKfycbyiUE8SnfMzVvqxlqeeoyaWXRyF2bDqEEdqBJ4FMIiMlhyCozsEGAowpwe6iiO-KJxN/exec";
 var PROXIES = ["https://api.allorigins.win/raw?url=", "https://corsproxy.io/?"];
@@ -8,7 +8,6 @@ var NHL_SCHEDULE = "https://api-web.nhle.com/v1/schedule/now";
 var container = document.getElementById('app');
 var cache = { standings: {}, schedule: null, dashboardTeams: null, sheets: {}, teams: {} };
 var currentFilter = 'all', sortDir = 1;
-
 const MAP = { "UTAH": "UTA", "UTM": "UTA", "LA": "LAK", "SJ": "SJS", "TB": "TBL", "NJ": "NJD" };
 
 async function smartFetch(url) {
@@ -22,58 +21,55 @@ async function smartFetch(url) {
 }
 
 /**
- * BULLETPROOF MONEYPUCK SCRAPER
- * Finds the team logo, isolates the table cell it lives inside, and grabs the percentage.
- * This works whether the game is live, delayed, or upcoming.
+ * SPORTSBOOK ODDS API
+ * Pulls live Moneyline odds from ESPN's hidden public scoreboard API.
+ * We use this because directly scraping FanDuel triggers bot-protection blocks.
  */
-async function fetchMoneyPuckOdds() {
-    let mpOdds = {};
+async function fetchBettingOdds() {
+    let oddsData = {};
     try {
-        let res = await fetch("https://api.allorigins.win/get?url=" + encodeURIComponent("https://moneypuck.com/index.html"));
+        // ESPN's API natively supports CORS, so we can fetch it directly without a proxy
+        let res = await fetch("https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard");
         let data = await res.json();
         
-        let parser = new DOMParser();
-        let doc = parser.parseFromString(data.contents, "text/html");
-        
-        // Find all images on the MoneyPuck homepage
-        let images = doc.querySelectorAll('img');
-        
-        images.forEach(img => {
-            let src = img.getAttribute('src') || "";
-            // Check if the image is a team logo
-            let match = src.match(/(?:logo_|logos\/)([A-Za-z\.]+)\.(?:png|svg|webp)/i);
-            
-            if (match) {
-                let teamCode = match[1].toUpperCase();
-                
-                // MoneyPuck uses a 3-column table (Away | Time | Home).
-                // By getting the closest 'td', we strictly isolate this team's data
-                // so we don't accidentally grab the opponent's percentage.
-                let cell = img.closest('td') || img.parentElement.parentElement;
-                
-                if (cell) {
-                    let text = cell.textContent || "";
-                    // Look for any number formatted as a percentage (e.g. 55% or 49.1%)
-                    let pctMatch = text.match(/(\d{1,3}(?:\.\d{1,2})?)\s*%/);
+        if (data && data.events) {
+            data.events.forEach(event => {
+                let comp = event.competitions[0];
+                if (comp && comp.odds && comp.odds.length > 0) {
+                    let odds = comp.odds[0];
+                    let awayAbbrev = comp.competitors.find(c => c.homeAway === 'away').team.abbreviation.toUpperCase();
+                    let homeAbbrev = comp.competitors.find(c => c.homeAway === 'home').team.abbreviation.toUpperCase();
                     
-                    if (pctMatch && !mpOdds[teamCode]) {
-                        mpOdds[teamCode] = pctMatch[1] + "%";
+                    let awayML = (odds.awayTeamOdds && odds.awayTeamOdds.moneyLine) ? odds.awayTeamOdds.moneyLine : "N/A";
+                    let homeML = (odds.homeTeamOdds && odds.homeTeamOdds.moneyLine) ? odds.homeTeamOdds.moneyLine : "N/A";
+
+                    // Format nicely (add + to positive odds, handle Pick'em)
+                    if (awayML !== "N/A") {
+                        if (awayML > 0) awayML = "+" + awayML;
+                        else if (awayML === 0) awayML = "PK";
                     }
+                    if (homeML !== "N/A") {
+                        if (homeML > 0) homeML = "+" + homeML;
+                        else if (homeML === 0) homeML = "PK";
+                    }
+
+                    oddsData[awayAbbrev] = awayML;
+                    oddsData[homeAbbrev] = homeML;
                 }
-            }
-        });
+            });
+        }
         
-        // Map MoneyPuck's weird punctuation to standard NHL abbreviations
-        const mpMap = { "L.A": "LAK", "S.J": "SJS", "T.B": "TBL", "N.J": "NJD", "UTA": "UTA", "V.G": "VGK" };
+        // ESPN uses slightly different team acronyms than the NHL API
+        const espnMap = { "WAS": "WSH", "SJ": "SJS", "TB": "TBL", "NJ": "NJD", "LA": "LAK", "UTAH": "UTA" };
         let normalizedOdds = {};
-        for (let key in mpOdds) {
-            let cleanKey = mpMap[key] || key;
-            normalizedOdds[cleanKey] = mpOdds[key];
+        for (let key in oddsData) {
+            let cleanKey = espnMap[key] || key;
+            normalizedOdds[cleanKey] = oddsData[key];
         }
         
         return normalizedOdds;
     } catch (e) {
-        console.warn("MoneyPuck scrape unavailable.", e);
+        console.warn("Failed to fetch odds from ESPN API.", e);
         return {}; 
     }
 }
@@ -157,19 +153,19 @@ async function loadDashboard() {
 }
 
 async function loadMatchups() {
-    container.innerHTML = "<h2>Analyzing Matchups & Scraping Odds...</h2>";
+    container.innerHTML = "<h2>Analyzing Matchups & Fetching Odds...</h2>";
     window.scrollTo(0,0);
     try {
-        let mpOdds = {};
+        let gameOdds = {};
         if (!cache.sheets["VS Empty"] || !cache.sheets["RawData"]) {
-            const [vsRes, rawRes, mpRes] = await Promise.all([
+            const [vsRes, rawRes, oddsRes] = await Promise.all([
                 fetch(GOOGLE_URL + "?action=raw&name=VS Empty").then(r => r.json()),
                 fetch(GOOGLE_URL + "?action=raw&name=RawData").then(r => r.json()),
-                fetchMoneyPuckOdds()
+                fetchBettingOdds()
             ]);
-            cache.sheets["VS Empty"] = vsRes; cache.sheets["RawData"] = rawRes; mpOdds = mpRes;
+            cache.sheets["VS Empty"] = vsRes; cache.sheets["RawData"] = rawRes; gameOdds = oddsRes;
         } else {
-            mpOdds = await fetchMoneyPuckOdds(); 
+            gameOdds = await fetchBettingOdds(); 
         }
 
         let vsE = cache.sheets["VS Empty"], rawP = cache.sheets["RawData"], teamV = {};
@@ -196,19 +192,19 @@ async function loadMatchups() {
                         let away = game.awayTeam.abbrev, home = game.homeTeam.abbrev, time = new Date(game.startTimeUTC).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                         let aC = (playerE[away] || []).sort((a,b) => b.score - a.score)[0], hC = (playerE[home] || []).sort((a,b) => b.score - a.score)[0], aT = teamV[away] || 0, hT = teamV[home] || 0;
                         
-                        let awayOdds = mpOdds[away] || "N/A", homeOdds = mpOdds[home] || "N/A";
+                        let awayOdds = gameOdds[away] || "N/A", homeOdds = gameOdds[home] || "N/A";
 
                         html += `
                             <div class="m-card">
                                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                                     <span style="display:flex; flex-direction:column; align-items:flex-start;">
                                         <span><img src="https://assets.nhle.com/logos/nhl/svg/${away}_light.svg" style="width:25px; vertical-align:middle;"> <b>${away}</b></span>
-                                        <span style="font-size:0.75rem; color:#8b949e; margin-top:3px;">Win: <span style="color:var(--txt)">${awayOdds}</span></span>
+                                        <span style="font-size:0.75rem; color:#8b949e; margin-top:3px;">ML: <span style="color:var(--txt)">${awayOdds}</span></span>
                                     </span>
                                     <span style="color:var(--acc); font-size:0.8rem; font-weight:bold;">${time}</span>
                                     <span style="display:flex; flex-direction:column; align-items:flex-end;">
                                         <span><b>${home}</b> <img src="https://assets.nhle.com/logos/nhl/svg/${home}_light.svg" style="width:25px; vertical-align:middle;"></span>
-                                        <span style="font-size:0.75rem; color:#8b949e; margin-top:3px;">Win: <span style="color:var(--txt)">${homeOdds}</span></span>
+                                        <span style="font-size:0.75rem; color:#8b949e; margin-top:3px;">ML: <span style="color:var(--txt)">${homeOdds}</span></span>
                                     </span>
                                 </div>
                                 <div style="background: rgba(88, 166, 255, 0.05); border: 1px dashed var(--acc); border-radius: 4px; padding: 10px; font-size: 0.9rem;">
