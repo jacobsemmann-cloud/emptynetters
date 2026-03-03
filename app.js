@@ -1,4 +1,4 @@
-console.log("App v8.3.1 - Enhanced MoneyPuck Scraper + Caching");
+console.log("App v8.3.1 - Enhanced MoneyPuck DOM Scraper + Caching");
 
 var GOOGLE_URL = "https://script.google.com/macros/s/AKfycbyiUE8SnfMzVvqxlqeeoyaWXRyF2bDqEEdqBJ4FMIiMlhyCozsEGAowpwe6iiO-KJxN/exec";
 var PROXIES = ["https://api.allorigins.win/raw?url=", "https://corsproxy.io/?"];
@@ -21,8 +21,8 @@ async function smartFetch(url) {
 }
 
 /**
- * FIXED MONEYPUCK SCRAPER
- * Removes line-breaks and scans up to 150 characters around the team logo to find the win %
+ * ROBUST MONEYPUCK SCRAPER
+ * Uses DOMParser to navigate the HTML tree and find percentages physically close to team logos.
  */
 async function fetchMoneyPuckOdds() {
     let mpOdds = {};
@@ -30,24 +30,38 @@ async function fetchMoneyPuckOdds() {
         let res = await fetch("https://api.allorigins.win/get?url=" + encodeURIComponent("https://moneypuck.com/index.html"));
         let data = await res.json();
         
-        // Strip out newlines so the Regex can flow across HTML blocks
-        let cleanHtml = data.contents.replace(/\r?\n|\r/g, ' ');
-
-        // Looks for logo_TEAM.png, then jumps over tags until it hits a percentage (e.g., 55.2%)
-        let regex = /logo_([a-zA-Z\.]+)\.png.{1,150}?(\d{1,2}\.\d{1,2})%/gi;
-        let match;
+        // Build a virtual DOM to search through
+        let parser = new DOMParser();
+        let doc = parser.parseFromString(data.contents, "text/html");
         
-        while ((match = regex.exec(cleanHtml)) !== null) {
-            let teamCode = match[1].toUpperCase();
-            let winPercent = match[2] + "%";
+        let images = doc.querySelectorAll('img');
+        
+        images.forEach(img => {
+            let src = img.getAttribute('src') || "";
+            let match = src.match(/(?:logo_|logos\/)([A-Za-z\.]+)\.(?:png|svg|webp)/i);
             
-            // Only assign the first one found (the primary matchup odds) to prevent overwriting with sidebar stats
-            if (!mpOdds[teamCode]) {
-                mpOdds[teamCode] = winPercent;
+            if (match) {
+                let teamCode = match[1].toUpperCase();
+                
+                // Search the parent containers up to 3 levels deep for a percentage
+                let currentEl = img.parentElement;
+                for (let i = 0; i < 3; i++) {
+                    if (!currentEl) break;
+                    let text = currentEl.innerText || "";
+                    let pctMatch = text.match(/(\d{1,3}(?:\.\d{1,2})?)\s*%/);
+                    
+                    if (pctMatch) {
+                        if (!mpOdds[teamCode]) {
+                            mpOdds[teamCode] = pctMatch[1] + "%";
+                        }
+                        break;
+                    }
+                    currentEl = currentEl.parentElement;
+                }
             }
-        }
+        });
         
-        const mpMap = { "L.A": "LAK", "S.J": "SJS", "T.B": "TBL", "N.J": "NJD", "UTA": "UTA" };
+        const mpMap = { "L.A": "LAK", "S.J": "SJS", "T.B": "TBL", "N.J": "NJD", "UTA": "UTA", "V.G": "VGK" };
         let normalizedOdds = {};
         for (let key in mpOdds) {
             let cleanKey = mpMap[key] || key;
